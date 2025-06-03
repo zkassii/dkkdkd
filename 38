@@ -1,0 +1,93 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+
+namespace FileViewerApp
+{
+    public partial class MainWindow : Window
+    {
+        // Автосвойства
+        public int PageSize { get; set; } = 5;
+        public int CurrentPage { get; set; } = 1;
+        public int PagesCount => (int)Math.Ceiling((double)AllFiles.Count / PageSize);
+
+        private List<FileInfo> AllFiles { get; set; } = new List<FileInfo>();
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            LoadFiles();
+            DisplayFiles();
+            UpdateStatus();
+        }
+
+        private void LoadFiles()
+        {
+            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            AllFiles = Directory.GetFiles(desktopPath)
+                .Select(f => new FileInfo(f))
+                .OrderBy(f => f.Name)
+                .ToList();
+        }
+
+        private void DisplayFiles()
+        {
+            var result = AllFiles
+                .Skip((CurrentPage - 1) * PageSize)
+                .Take(PageSize)
+                .AsEnumerable();
+
+            FilesListView.ItemsSource = result;
+            ShowMoreButton.IsEnabled = CurrentPage < PagesCount;
+        }
+
+        private void UpdateStatus()
+        {
+            int shownCount = Math.Min(CurrentPage * PageSize, AllFiles.Count);
+            StatusTextBlock.Text = $"Показано {shownCount} из {AllFiles.Count} записей. Всего страниц: {PagesCount}";
+        }
+
+        private void ShowMoreButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (CurrentPage < PagesCount)
+            {
+                CurrentPage++;
+                DisplayFiles();
+                UpdateStatus();
+            }
+        }
+    }
+
+    // Класс для отображения информации о файле
+    public class FileInfo
+    {
+        public string Name { get; set; }
+        public long Size { get; set; }
+        public DateTime CreationDate { get; set; }
+        public string SizeFormatted => FormatSize(Size);
+
+        public FileInfo(string filePath)
+        {
+            var file = new System.IO.FileInfo(filePath);
+            Name = file.Name;
+            Size = file.Length;
+            CreationDate = file.CreationTime;
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            string[] sizes = { "B", "KB", "MB", "GB" };
+            int order = 0;
+            double len = bytes;
+            while (len >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                len /= 1024;
+            }
+            return $"{len:0.##} {sizes[order]}";
+        }
+    }
+}
