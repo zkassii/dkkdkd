@@ -1,0 +1,154 @@
+Вот полный код для создания приложения на .NET MAUI, которое выполняет заданные задачи, включая главную страницу с кнопками для перехода к заданиям и страницу для задания 3 с использованием LINQ для группировки файлов.
+
+### 1. MainPage.xaml
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="YourNamespace.MainPage">
+
+    <StackLayout Padding="20">
+        <Button Text="Задание 1" Clicked="OnTask1ButtonClicked"/>
+        <Button Text="Задание 2" Clicked="OnTask2ButtonClicked"/>
+        <Button Text="Задание 3" Clicked="OnTask3ButtonClicked"/>
+    </StackLayout>
+</ContentPage>
+```
+
+### 2. MainPage.xaml.cs
+
+```csharp
+using Microsoft.Maui.Controls;
+
+namespace YourNamespace
+{
+    public partial class MainPage : ContentPage
+    {
+        public MainPage()
+        {
+            InitializeComponent();
+        }
+
+        private async void OnTask1ButtonClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Task1Page());
+        }
+
+        private async void OnTask2ButtonClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Task2Page());
+        }
+
+        private async void OnTask3ButtonClicked(object sender, EventArgs e)
+        {
+            await Navigation.PushAsync(new Task3Page());
+        }
+    }
+}
+```
+
+### 3. Task3Page.xaml
+
+```xml
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="YourNamespace.Task3Page">
+
+    <StackLayout Padding="20">
+        <ListView x:Name="listView">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ViewCell>
+                        <StackLayout Orientation="Vertical">
+                            <Label Text="{Binding Extension}" FontAttributes="Bold"/>
+                            <Label Text="Общий размер: {Binding TotalSize} байт"/>
+                            <Label Text="Минимальный размер: {Binding MinSize} байт"/>
+                            <Label Text="Максимальный размер: {Binding MaxSize} байт"/>
+                            <Label Text="Количество файлов: {Binding Count}"/>
+                        </StackLayout>
+                    </ViewCell>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </StackLayout>
+</ContentPage>
+```
+
+### 4. Task3Page.xaml.cs
+
+```csharp
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Microsoft.Maui.Controls;
+
+namespace YourNamespace
+{
+    public partial class Task3Page : ContentPage
+    {
+        public Task3Page()
+        {
+            InitializeComponent();
+            LoadFileData();
+        }
+
+        private void LoadFileData()
+        {
+            string path = "ваш_путь_к_папке"; // Укажите путь к папке
+            DirectoryInfo directory = new DirectoryInfo(path);
+            
+            // Получаем файлы
+            IEnumerable<FileInfo> files = directory.GetFiles("*", SearchOption.AllDirectories);
+            
+            var fileGroups = files
+                .GroupBy(f => f.Extension)
+                .Select(g => new
+                {
+                    Extension = g.Key,
+                    TotalSize = g.Sum(f => f.Length),
+                    MinSize = g.Min(f => f.Length),
+                    MaxSize = g.Max(f => f.Length),
+                    Count = g.Count()
+                })
+                .ToList();
+
+            // Привязываем данные к ListView
+            listView.ItemsSource = fileGroups;
+        }
+    }
+}
+```
+
+### 5. App.xaml.cs
+
+Не забудьте настроить навигацию в вашем приложении. Вот пример `App.xaml.cs`, который инициализирует навигацию:
+
+```csharp
+using Microsoft.Maui.Controls;
+
+namespace YourNamespace
+{
+    public partial class App : Application
+    {
+        public App()
+        {
+            InitializeComponent();
+            MainPage = new NavigationPage(new MainPage());
+        }
+    }
+}
+```
+
+### 6. Установка NuGet-пакетов
+
+Убедитесь, что у вас установлены все необходимые NuGet-пакеты для работы с .NET MAUI.
+
+### 7. Примечания
+
+- Замените `ваш_путь_к_папке` на фактический путь к папке, из которой вы хотите получить файлы.
+- Добавьте страницы для заданий 1 и 2 аналогичным образом, если они также нужны.
+- Замените `YourNamespace` на актуальное пространство имен вашего проекта.
+
+С этим кодом вы сможете запустить приложение, которое будет выполнять указанные задания.
