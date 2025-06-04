@@ -1,0 +1,323 @@
+5.2
+<Window x:Class="ShapesApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Фигуры с трансформациями" Height="600" Width="800">
+    <ScrollViewer>
+        <StackPanel Margin="20">
+            <!-- Круги с трансформациями -->
+            <TextBlock Text="Круги с трансформациями" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <!-- Круг с масштабированием -->
+                <Ellipse Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                         Fill="LightBlue" Margin="10">
+                    <Ellipse.RenderTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="0.8"/>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                
+                <!-- Круг с поворотом -->
+                <Ellipse Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                         Fill="LightCoral" Margin="10">
+                    <Ellipse.RenderTransform>
+                        <RotateTransform Angle="45"/>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+                
+                <!-- Круг с масштабированием и поворотом -->
+                <Ellipse Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                         Fill="LightGreen" Margin="10">
+                    <Ellipse.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.2" ScaleY="1.5"/>
+                            <RotateTransform Angle="30"/>
+                        </TransformGroup>
+                    </Ellipse.RenderTransform>
+                </Ellipse>
+            </StackPanel>
+            
+            <!-- Прямоугольники с трансформациями -->
+            <TextBlock Text="Прямоугольники с трансформациями" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <!-- Прямоугольник с масштабированием -->
+                <Rectangle Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                           Fill="LightSalmon" Margin="10">
+                    <Rectangle.RenderTransform>
+                        <ScaleTransform ScaleX="0.7" ScaleY="1.3"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+                
+                <!-- Прямоугольник с поворотом -->
+                <Rectangle Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                           Fill="LightSkyBlue" Margin="10">
+                    <Rectangle.RenderTransform>
+                        <RotateTransform Angle="-15"/>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+                
+                <!-- Прямоугольник с масштабированием и поворотом -->
+                <Rectangle Width="100" Height="100" Stroke="Black" StrokeThickness="2" 
+                           Fill="LightGoldenrodYellow" Margin="10">
+                    <Rectangle.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.5" ScaleY="0.8"/>
+                            <RotateTransform Angle="20"/>
+                        </TransformGroup>
+                    </Rectangle.RenderTransform>
+                </Rectangle>
+            </StackPanel>
+            
+            <!-- Кнопки с трансформациями -->
+            <TextBlock Text="Кнопки с трансформациями" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                <!-- Кнопка с масштабированием -->
+                <Button Content="Масштаб" Width="100" Height="40" Margin="10">
+                    <Button.RenderTransform>
+                        <ScaleTransform ScaleX="1.5" ScaleY="1.2"/>
+                    </Button.RenderTransform>
+                </Button>
+                
+                <!-- Кнопка с поворотом -->
+                <Button Content="Поворот" Width="100" Height="40" Margin="10">
+                    <Button.RenderTransform>
+                        <RotateTransform Angle="10"/>
+                    </Button.RenderTransform>
+                </Button>
+                
+                <!-- Кнопка с масштабированием и поворотом -->
+                <Button Content="Комбинация" Width="100" Height="40" Margin="10">
+                    <Button.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="0.8" ScaleY="1.3"/>
+                            <RotateTransform Angle="-5"/>
+                        </TransformGroup>
+                    </Button.RenderTransform>
+                </Button>
+            </StackPanel>
+            
+            <!-- Текст с трансформациями -->
+            <TextBlock Text="Текст с трансформациями" FontWeight="Bold" FontSize="16" Margin="0,0,0,10"/>
+            
+            <StackPanel Orientation="Horizontal">
+                <!-- Текст с масштабированием -->
+                <TextBlock Text="Масштаб" FontSize="20" Margin="10">
+                    <TextBlock.RenderTransform>
+                        <ScaleTransform ScaleX="1.8" ScaleY="0.7"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                
+                <!-- Текст с поворотом -->
+                <TextBlock Text="Поворот" FontSize="20" Margin="10">
+                    <TextBlock.RenderTransform>
+                        <RotateTransform Angle="-25"/>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+                
+                <!-- Текст с масштабированием и поворотом -->
+                <TextBlock Text="Комбинация" FontSize="20" Margin="10">
+                    <TextBlock.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform ScaleX="1.2" ScaleY="1.2"/>
+                            <RotateTransform Angle="15"/>
+                        </TransformGroup>
+                    </TextBlock.RenderTransform>
+                </TextBlock>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>
+
+5.4
+<Window x:Class="RandomCirclesApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Генератор случайных кругов" Height="600" Width="800">
+    <Canvas Name="MainCanvas" Background="White" MouseDown="Canvas_MouseDown"/>
+</Window>
+
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+
+namespace RandomCirclesApp
+{
+    public partial class MainWindow : Window
+    {
+        private readonly Random random = new Random();
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Canvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Получаем позицию клика
+            Point position = e.GetPosition(MainCanvas);
+            double x = position.X;
+            double y = position.Y;
+
+            // Создаем новый круг
+            Ellipse circle = new Ellipse();
+
+            // Генерируем случайные параметры
+            int size = random.Next(20, 100); // Диаметр от 20 до 100
+            byte r = (byte)random.Next(256); // Красный компонент
+            byte g = (byte)random.Next(256); // Зеленый компонент
+            byte b = (byte)random.Next(256); // Синий компонент
+            byte a = (byte)random.Next(100, 256); // Альфа-канал (прозрачность)
+
+            // Устанавливаем свойства круга
+            circle.Width = size;
+            circle.Height = size;
+            circle.Fill = new SolidColorBrush(Color.FromArgb(a, r, g, b));
+            
+            // Случайный радиус скругления (для создания овалов)
+            if (random.Next(2) == 0) // 50% chance
+            {
+                circle.RadiusX = random.Next(0, size/2);
+                circle.RadiusY = random.Next(0, size/2);
+            }
+
+            // Добавляем обводку (50% chance)
+            if (random.Next(2) == 0)
+            {
+                circle.Stroke = new SolidColorBrush(Color.FromRgb(
+                    (byte)random.Next(256), 
+                    (byte)random.Next(256), 
+                    (byte)random.Next(256)));
+                circle.StrokeThickness = random.Next(1, 5);
+            }
+
+            // Устанавливаем позицию (центрируем круг относительно точки клика)
+            Canvas.SetLeft(circle, x - size / 2);
+            Canvas.SetTop(circle, y - size / 2);
+
+            // Добавляем круг на Canvas
+            MainCanvas.Children.Add(circle);
+        }
+    }
+}
+
+
+5.5
+<Window x:Class="RandomCirclesApp.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Генератор случайных кругов с тегами" Height="600" Width="800">
+    <Grid>
+        <Canvas Name="MainCanvas" Background="White" MouseDown="Canvas_MouseDown"/>
+        <TextBlock Name="TagInfo" HorizontalAlignment="Left" VerticalAlignment="Top" 
+                   Margin="10" FontSize="16" Foreground="Black" Background="#CCFFFFFF"/>
+    </Grid>
+</Window>
+
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
+
+namespace RandomCirclesApp
+{
+    public partial class MainWindow : Window
+    {
+        private readonly Random random = new Random();
+        private readonly string[] tags = { "enemy", "hero", "treasure" };
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Canvas_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Если клик не по пустому месту (например, по другому кругу), не создаем новый
+            if (e.Source is Canvas)
+            {
+                CreateRandomCircle(e.GetPosition(MainCanvas));
+            }
+        }
+
+        private void CreateRandomCircle(Point position)
+        {
+            // Создаем новый круг
+            Ellipse circle = new Ellipse();
+
+            // Генерируем случайные параметры
+            int size = random.Next(20, 100);
+            byte r = (byte)random.Next(256);
+            byte g = (byte)random.Next(256);
+            byte b = (byte)random.Next(256);
+            byte a = (byte)random.Next(100, 256);
+            string tag = tags[random.Next(tags.Length)];
+
+            // Устанавливаем свойства круга
+            circle.Width = size;
+            circle.Height = size;
+            circle.Fill = new SolidColorBrush(Color.FromArgb(a, r, g, b));
+            circle.Tag = tag; // Устанавливаем тег
+            
+            // Устанавливаем курсор в виде руки при наведении
+            circle.Cursor = System.Windows.Input.Cursors.Hand;
+
+            // Случайный радиус скругления
+            if (random.Next(2) == 0)
+            {
+                circle.RadiusX = random.Next(0, size/2);
+                circle.RadiusY = random.Next(0, size/2);
+            }
+
+            // Добавляем обводку (50% chance)
+            if (random.Next(2) == 0)
+            {
+                circle.Stroke = new SolidColorBrush(Color.FromRgb(
+                    (byte)random.Next(256), 
+                    (byte)random.Next(256), 
+                    (byte)random.Next(256)));
+                circle.StrokeThickness = random.Next(1, 5);
+            }
+
+            // Устанавливаем позицию (центрируем круг относительно точки клика)
+            Canvas.SetLeft(circle, position.X - size / 2);
+            Canvas.SetTop(circle, position.Y - size / 2);
+
+            // Добавляем обработчик нажатия
+            circle.MouseDown += Circle_MouseDown;
+
+            // Добавляем круг на Canvas
+            MainCanvas.Children.Add(circle);
+        }
+
+        private void Circle_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            // Останавливаем всплытие события, чтобы не создавался новый круг
+            e.Handled = true;
+            
+            if (sender is Ellipse circle && circle.Tag is string tag)
+            {
+                // Выводим тег элемента
+                TagInfo.Text = $"Нажат элемент: {tag}";
+                
+                // Визуальная обратная связь - временное изменение цвета
+                var originalFill = circle.Fill;
+                circle.Fill = new SolidColorBrush(Colors.Yellow);
+                
+                // Возвращаем исходный цвет через 0.3 секунды
+                var timer = new System.Windows.Threading.DispatcherTimer();
+                timer.Interval = TimeSpan.FromMilliseconds(300);
+                timer.Tick += (s, args) =>
+                {
+                    circle.Fill = originalFill;
+                    timer.Stop();
+                };
+                timer.Start();
+            }
+        }
+    }
+}
