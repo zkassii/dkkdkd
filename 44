@@ -1,0 +1,173 @@
+# Решение для создания баз данных SQLite и MSSQL с использованием C#
+
+## 5.1 и 5.2 - Создание БД с использованием скриптов в DBeaver
+
+Для этих задач вам нужно:
+1. Открыть DBeaver
+2. Для SQLite: создать новое подключение (SQLite), указать путь к файлу GamesStore.sqlite
+3. Для MSSQL: создать новое подключение (MSSQL), указать сервер, логин и пароль в формате isppXXNN/XXNN
+4. Выполнить соответствующие скрипты (sqlite.txt для SQLite, mssql.txt для MSSQL)
+
+## 5.3 и 5.4 - Создание БД с использованием C#
+
+### Решение для SQLite (5.3):
+
+```csharp
+using System;
+using Microsoft.Data.Sqlite;
+
+class Program
+{
+    static void CreateSQLiteDatabase(string dbFileName)
+    {
+        // Проверяем, существует ли уже файл базы данных
+        if (System.IO.File.Exists(dbFileName))
+        {
+            Console.WriteLine($"База данных {dbFileName} уже существует.");
+            return;
+        }
+
+        // Создаем подключение к базе данных (файл будет создан автоматически)
+        using (var connection = new SqliteConnection($"Data Source={dbFileName}"))
+        {
+            connection.Open();
+            
+            // Создаем таблицы
+            using (var command = connection.CreateCommand())
+            {
+                // Таблица Games
+                command.CommandText = @"
+                    CREATE TABLE Games (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        Title TEXT NOT NULL,
+                        Developer TEXT NOT NULL,
+                        ReleaseDate TEXT,
+                        Price REAL,
+                        Genre TEXT
+                    )";
+                command.ExecuteNonQuery();
+
+                // Таблица Customers
+                command.CommandText = @"
+                    CREATE TABLE Customers (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        FirstName TEXT NOT NULL,
+                        LastName TEXT NOT NULL,
+                        Email TEXT,
+                        Phone TEXT
+                    )";
+                command.ExecuteNonQuery();
+
+                // Таблица Orders
+                command.CommandText = @"
+                    CREATE TABLE Orders (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        CustomerId INTEGER NOT NULL,
+                        GameId INTEGER NOT NULL,
+                        OrderDate TEXT NOT NULL,
+                        Quantity INTEGER NOT NULL,
+                        FOREIGN KEY (CustomerId) REFERENCES Customers(Id),
+                        FOREIGN KEY (GameId) REFERENCES Games(Id)
+                    )";
+                command.ExecuteNonQuery();
+
+                Console.WriteLine($"База данных {dbFileName} и таблицы успешно созданы.");
+            }
+        }
+    }
+
+    static void Main(string[] args)
+    {
+        CreateSQLiteDatabase("GamesStore.sqlite");
+    }
+}
+```
+
+### Решение для MSSQL (5.4):
+
+```csharp
+using System;
+using Microsoft.Data.SqlClient;
+
+class Program
+{
+    static void CreateMSSQLDatabase(string server, string username, string password)
+    {
+        string connectionString = $"Server={server};User Id={username};Password={password};TrustServerCertificate=True;";
+
+        using (var connection = new SqlConnection(connectionString))
+        {
+            try
+            {
+                connection.Open();
+                
+                // Создаем таблицу Roles
+                using (var command = new SqlCommand())
+                {
+                    command.Connection = connection;
+                    command.CommandText = @"
+                        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Roles' AND xtype='U')
+                        CREATE TABLE Roles (
+                            Id INT PRIMARY KEY IDENTITY(1,1),
+                            Name NVARCHAR(50) NOT NULL
+                        )";
+                    command.ExecuteNonQuery();
+                }
+
+                // Создаем таблицу Users
+                using (var command = new SqlCommand())
+                {
+                    command.Connection = connection;
+                    command.CommandText = @"
+                        IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Users' AND xtype='U')
+                        CREATE TABLE Users (
+                            Id INT PRIMARY KEY IDENTITY(1,1),
+                            RoleId INT NOT NULL,
+                            Login NVARCHAR(50) NOT NULL,
+                            Password NVARCHAR(100) NOT NULL,
+                            FOREIGN KEY (RoleId) REFERENCES Roles(Id)
+                        )";
+                    command.ExecuteNonQuery();
+                }
+
+                Console.WriteLine("Таблицы Roles и Users успешно созданы в базе данных MSSQL.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка при создании таблиц: {ex.Message}");
+            }
+        }
+    }
+
+    static void Main(string[] args)
+    {
+        // Пример вызова: CreateMSSQLDatabase("mssql", "ispp0101", "0101");
+        Console.WriteLine("Введите номер группы (XX):");
+        string group = Console.ReadLine();
+        Console.WriteLine("Введите номер рабочего места (NN):");
+        string workstation = Console.ReadLine();
+
+        string username = $"ispp{group}{workstation}";
+        string password = $"{group}{workstation}";
+
+        CreateMSSQLDatabase("mssql", username, password);
+    }
+}
+```
+
+### Необходимые пакеты NuGet:
+Для работы этих примеров вам нужно установить следующие пакеты NuGet:
+1. Для SQLite: `Microsoft.Data.Sqlite`
+2. Для MSSQL: `Microsoft.Data.SqlClient`
+
+Установить их можно через консоль диспетчера пакетов:
+```
+Install-Package Microsoft.Data.Sqlite
+Install-Package Microsoft.Data.SqlClient
+```
+
+Или через .NET CLI:
+```
+dotnet add package Microsoft.Data.Sqlite
+dotnet add package Microsoft.Data.SqlClient
+```
