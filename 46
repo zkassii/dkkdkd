@@ -1,0 +1,281 @@
+# Реализация по заданиям
+
+## 5.1 Создание слоя доступа к данным и формирование строки подключения
+
+### 5.1.1 Создание проектов
+
+1. Создайте решение с двумя проектами:
+   - `DatabaseLibrary` (библиотека классов)
+   - `DatabaseApp` (Windows Forms приложение)
+
+2. Добавьте в проект `DatabaseLibrary` NuGet пакеты:
+   - Microsoft.Data.SqlClient
+   - Microsoft.Data.Sqlite
+
+### 5.1.2 Интерфейс и классы для работы с БД
+
+**IDatabase.cs**
+```csharp
+namespace DatabaseLibrary
+{
+    public interface IDatabase
+    {
+    }
+}
+```
+
+**SqlDatabase.cs**
+```csharp
+using Microsoft.Data.SqlClient;
+
+namespace DatabaseLibrary
+{
+    public class SqlDatabase : IDatabase
+    {
+    }
+}
+```
+
+**SqliteDatabase.cs**
+```csharp
+using Microsoft.Data.Sqlite;
+
+namespace DatabaseLibrary
+{
+    public class SqliteDatabase : IDatabase
+    {
+    }
+}
+```
+
+### 5.1.3 Добавление конструкторов и строк подключения
+
+**SqlDatabase.cs**
+```csharp
+public class SqlDatabase : IDatabase
+{
+    private readonly string _connectionString;
+
+    public SqlDatabase(string server, string database, string username, string password)
+    {
+        var builder = new SqlConnectionStringBuilder
+        {
+            DataSource = server,
+            InitialCatalog = database,
+            UserID = username,
+            Password = password,
+            Encrypt = false
+        };
+        _connectionString = builder.ConnectionString;
+    }
+}
+```
+
+**SqliteDatabase.cs**
+```csharp
+public class SqliteDatabase : IDatabase
+{
+    private readonly string _connectionString;
+
+    public SqliteDatabase(string path, string dbName)
+    {
+        var builder = new SqliteConnectionStringBuilder
+        {
+            DataSource = System.IO.Path.Combine(path, dbName)
+        };
+        _connectionString = builder.ConnectionString;
+    }
+}
+```
+
+### 5.1.4 Тестирование в приложении
+
+**MainForm.cs**
+```csharp
+public partial class MainForm : Form
+{
+    private readonly IDatabase _database;
+
+    public MainForm()
+    {
+        InitializeComponent();
+        
+        // Для MSSQL
+        _database = new SqlDatabase("localhost", "GameDB", "sa", "your_password");
+        Debug.WriteLine("MSSQL Connection String: " + ((SqlDatabase)_database).GetConnectionString());
+        
+        // Для SQLite
+        // _database = new SqliteDatabase(Application.StartupPath, "games.db");
+        // Debug.WriteLine("SQLite Connection String: " + ((SqliteDatabase)_database).GetConnectionString());
+    }
+}
+```
+
+## 5.2 Создание метода для выполнения SQL-команды
+
+### 5.2.1 Добавление метода в интерфейс
+
+**IDatabase.cs**
+```csharp
+public interface IDatabase
+{
+    int ExecuteQuery(string sqlCommand);
+}
+```
+
+### 5.2.2 Реализация метода
+
+**SqlDatabase.cs**
+```csharp
+public int ExecuteQuery(string sqlCommand)
+{
+    using var connection = new SqlConnection(_connectionString);
+    using var command = new SqlCommand(sqlCommand, connection);
+    connection.Open();
+    return command.ExecuteNonQuery();
+}
+```
+
+**SqliteDatabase.cs**
+```csharp
+public int ExecuteQuery(string sqlCommand)
+{
+    using var connection = new SqliteConnection(_connectionString);
+    using var command = new SqliteCommand(sqlCommand, connection);
+    connection.Open();
+    return command.ExecuteNonQuery();
+}
+```
+
+### 5.2.3 Проверка работы
+
+**MainForm.cs**
+```csharp
+private void btnExecuteQuery_Click(object sender, EventArgs e)
+{
+    try
+    {
+        string sql = string.IsNullOrEmpty(txtQuery.Text) ? 
+            "UPDATE Games SET Price = Price + 1" : 
+            txtQuery.Text;
+        
+        int affectedRows = _database.ExecuteQuery(sql);
+        MessageBox.Show($"Запрос выполнен. Затронуто строк: {affectedRows}");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Ошибка: {ex.Message}");
+    }
+}
+```
+
+## 5.3 Создание метода для выполнения SQL-команды без параметров
+
+### 5.3.1 Добавление метода в интерфейс
+
+**IDatabase.cs**
+```csharp
+public interface IDatabase
+{
+    int ExecuteQuery(string sqlCommand);
+    bool UpdateGame(int id, string newName, decimal newPrice);
+}
+```
+
+### 5.3.2 Реализация метода
+
+**SqlDatabase.cs**
+```csharp
+public bool UpdateGame(int id, string newName, decimal newPrice)
+{
+    var sql = $"UPDATE Games SET Name = '{newName.Replace("'", "''")}', Price = {newPrice} WHERE Id = {id}";
+    return ExecuteQuery(sql) == 1;
+}
+```
+
+**SqliteDatabase.cs**
+```csharp
+public bool UpdateGame(int id, string newName, decimal newPrice)
+{
+    var sql = $"UPDATE Games SET Name = '{newName.Replace("'", "''")}', Price = {newPrice} WHERE Id = {id}";
+    return ExecuteQuery(sql) == 1;
+}
+```
+
+### 5.3.3 Проверка работы
+
+**MainForm.cs**
+```csharp
+private void btnUpdateGame_Click(object sender, EventArgs e)
+{
+    try
+    {
+        int id = int.Parse(txtId.Text);
+        string name = txtName.Text;
+        decimal price = decimal.Parse(txtPrice.Text);
+        
+        bool success = _database.UpdateGame(id, name, price);
+        MessageBox.Show(success ? "Игра успешно обновлена" : "Не удалось обновить игру");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Ошибка: {ex.Message}");
+    }
+}
+```
+
+## 5.4 Создание метода для выполнения SQL-команды с параметрами
+
+### 5.4.1 Добавление метода в интерфейс
+
+**IDatabase.cs**
+```csharp
+public interface IDatabase
+{
+    int ExecuteQuery(string sqlCommand);
+    bool UpdateGame(int id, string newName, decimal newPrice);
+    void InsertGame(string name, decimal price, int releaseYear);
+}
+```
+
+### 5.4.2 Реализация метода
+
+**SqlDatabase.cs**
+```csharp
+public void InsertGame(string name, decimal price, int releaseYear)
+{
+    var sql = $"INSERT INTO Games (Name, Price, ReleaseYear) VALUES ('{name.Replace("'", "''")}', {price}, {releaseYear})";
+    ExecuteQuery(sql);
+}
+```
+
+**SqliteDatabase.cs**
+```csharp
+public void InsertGame(string name, decimal price, int releaseYear)
+{
+    var sql = $"INSERT INTO Games (Name, Price, ReleaseYear) VALUES ('{name.Replace("'", "''")}', {price}, {releaseYear})";
+    ExecuteQuery(sql);
+}
+```
+
+### 5.4.3 Проверка работы
+
+**MainForm.cs**
+```csharp
+private void btnInsertGame_Click(object sender, EventArgs e)
+{
+    try
+    {
+        string name = txtNewName.Text;
+        decimal price = decimal.Parse(txtNewPrice.Text);
+        int year = int.Parse(txtYear.Text);
+        
+        _database.InsertGame(name, price, year);
+        MessageBox.Show("Игра успешно добавлена");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Ошибка: {ex.Message}");
+    }
+}
+```
