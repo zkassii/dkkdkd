@@ -290,3 +290,25 @@ public class IndexModel : PageModel
   - Добавления, редактирования и удаления игр.
   
 Работа выполнена в соответствии с требованиями. 🚀
+
+
+
+
+
+
+public class IndexModel : PageModel
+{
+    private readonly GamesService _gamesService;
+
+    public IndexModel(GamesService gamesService)
+    {
+        _gamesService = gamesService;
+    }
+
+    public List<Game> Games { get; set; } = new();
+
+    public async Task OnGetAsync()
+    {
+        Games = await _gamesService.GetGamesAsync(); // Загружаем игры при загрузке страницы
+    }
+}
