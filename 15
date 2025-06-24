@@ -1,11 +1,14 @@
 SELECT 
-    Author,
-    STRING_AGG(Title, ', ') WITHIN GROUP (ORDER BY Title) AS Books
-FROM (
-    SELECT DISTINCT Author, Title 
-    FROM Books
-) AS DistinctBooks
-GROUP BY Author;
+    a.AuthorName,
+    STRING_AGG(b.Title, ', ') WITHIN GROUP (ORDER BY b.Title) AS Books
+FROM 
+    Author a
+JOIN 
+    Book b ON a.AuthorID = b.AuthorID
+GROUP BY 
+    a.AuthorName
+ORDER BY 
+    a.AuthorName;;
 
 SELECT 
     o.OrderID,
