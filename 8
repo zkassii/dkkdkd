@@ -1,0 +1,116 @@
+# Практическая работа №8 - Создание БД Microsoft SQL Server
+
+## Выполнение задания
+
+### 5.1 Создание таблиц через проект
+
+1. Запустите SQL Server Management Studio (SSMS)
+2. Подключитесь к серверу с аутентификацией SQL Server, используя свои учетные данные
+3. Создайте новую базу данных или выберите существующую
+
+**Создание таблицы Authors (Авторы):**
+```sql
+CREATE TABLE Authors (
+    AuthorCode INT PRIMARY KEY,
+    LastName NVARCHAR(50) NOT NULL,
+    FirstName NVARCHAR(50) NOT NULL,
+    Country NVARCHAR(30) DEFAULT 'Россия'
+);
+```
+
+**Создание таблицы Books (Книги):**
+```sql
+CREATE TABLE Books (
+    BookCode INT PRIMARY KEY,
+    AuthorCode INT NOT NULL,
+    Title NVARCHAR(50) NOT NULL,
+    Genre NVARCHAR(10) CHECK (Genre IN ('проза', 'поэзия', 'другое')) DEFAULT 'проза',
+    Price DECIMAL(6,2) CHECK (Price BETWEEN 0 AND 9999.99) DEFAULT 0,
+    Weight DECIMAL(4,3) CHECK (Weight BETWEEN 0 AND 9.999) DEFAULT 0,
+    Pages SMALLINT DEFAULT 0,
+    Year SMALLINT,
+    FOREIGN KEY (AuthorCode) REFERENCES Authors(AuthorCode)
+);
+```
+
+### 5.2 Создание таблиц через диаграмму
+
+1. В обозревателе объектов щелкните правой кнопкой мыши на "Диаграммы баз данных"
+2. Выберите "Создать диаграмму базы данных"
+3. Добавьте созданные ранее таблицы Authors и Books
+4. Создайте новые таблицы:
+
+**Таблица Customers (Заказчики):**
+```sql
+CREATE TABLE Customers (
+    CustomerCode INT PRIMARY KEY,
+    Login VARCHAR(20) UNIQUE NOT NULL,
+    LastName NVARCHAR(50) NOT NULL,
+    FirstName NVARCHAR(50) NOT NULL,
+    Address NVARCHAR(100) NOT NULL,
+    Phone VARCHAR(20)
+);
+```
+
+**Таблица Orders (Заказы):**
+```sql
+CREATE TABLE Orders (
+    OrderNumber INT PRIMARY KEY,
+    CustomerCode INT NOT NULL,
+    OrderDateTime DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (CustomerCode) REFERENCES Customers(CustomerCode)
+);
+```
+
+**Таблица OrderDetails (Состав):**
+```sql
+CREATE TABLE OrderDetails (
+    OrderNumber INT,
+    BookCode INT,
+    Quantity TINYINT CHECK (Quantity BETWEEN 1 AND 100) DEFAULT 1,
+    PRIMARY KEY (OrderNumber, BookCode),
+    FOREIGN KEY (OrderNumber) REFERENCES Orders(OrderNumber),
+    FOREIGN KEY (BookCode) REFERENCES Books(BookCode)
+);
+```
+
+### 5.3 Настройка типов данных столбцов
+
+Типы данных уже указаны в SQL-запросах при создании таблиц (см. выше).
+
+### 5.4 Создание первичных ключей
+
+Первичные ключи созданы в SQL-запросах:
+- Authors: AuthorCode
+- Books: BookCode
+- Customers: CustomerCode
+- Orders: OrderNumber
+- OrderDetails: составной ключ (OrderNumber, BookCode)
+
+### 5.5 Создание связей между таблицами
+
+Связи созданы с помощью FOREIGN KEY:
+- Books.AuthorCode → Authors.AuthorCode
+- Orders.CustomerCode → Customers.CustomerCode
+- OrderDetails.OrderNumber → Orders.OrderNumber
+- OrderDetails.BookCode → Books.BookCode
+
+## Контрольные вопросы (краткие ответы)
+
+8.1 SQL Server Management Studio (SSMS) - это интегрированная среда для управления SQL Server, позволяющая администрировать сервер, создавать и изменять базы данных, выполнять запросы.
+
+8.2 MS SQL Server поддерживает два вида аутентификации:
+   - Проверка подлинности Windows
+   - Проверка подлинности SQL Server
+
+8.3 Диаграмму можно создать: правой кнопкой на "Диаграммы баз данных" → "Создать диаграмму базы данных".
+
+8.4 Таблицы можно добавить:
+   - Через меню "Таблицы" → "Создать таблицу"
+   - В диаграмме: правой кнопкой → "Создать таблицу"
+   - Выполнением SQL-запроса CREATE TABLE
+
+8.5 Связи между таблицами можно создать:
+   - В диаграмме: перетащив поле на соответствующее поле в другой таблице
+   - Через SQL-запрос с FOREIGN KEY
+   - Через конструктор таблиц, добавив ограничение внешнего ключа 
