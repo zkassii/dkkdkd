@@ -1,0 +1,31 @@
+SELECT 
+    Author,
+    STRING_AGG(Title, ', ') WITHIN GROUP (ORDER BY Title) AS Books
+FROM (
+    SELECT DISTINCT Author, Title 
+    FROM Books
+) AS DistinctBooks
+GROUP BY Author;
+
+SELECT 
+    o.OrderID,
+    STRING_AGG(CONCAT(b.Author, ' - ', b.Title), '; ') WITHIN GROUP (ORDER BY b.Title) AS BooksInfo
+FROM Orders o
+JOIN OrderDetails od ON o.OrderID = od.OrderID
+JOIN Books b ON od.BookID = b.BookID
+GROUP BY o.OrderID;
+
+
+SELECT 
+    ROW_NUMBER() OVER (ORDER BY Title) AS RowNum,
+    Title
+FROM Books
+ORDER BY Title;
+
+
+SELECT 
+    Genre,
+    ROW_NUMBER() OVER (PARTITION BY Genre ORDER BY Title) AS GenreRowNum,
+    Title
+FROM Books
+ORDER BY Genre, Title;
