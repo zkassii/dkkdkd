@@ -1,0 +1,367 @@
+using Xunit;
+using FractionLib;
+using System;
+
+namespace FractionTests
+{
+    public class FractionTests
+    {
+        #region Constructor Tests
+
+        [Fact]
+        public void Constructor_WithValidParameters_ShouldCreateFraction()
+        {
+            // Arrange & Act
+            var fraction = new Fraction(1, 2);
+
+            // Assert
+            Assert.Equal(1, fraction.Numerator);
+            Assert.Equal(2, fraction.Denominator);
+        }
+
+        [Fact]
+        public void Constructor_WithZeroDenominator_ShouldThrowDivideByZeroException()
+        {
+            // Arrange & Act & Assert
+            var exception = Assert.Throws<DivideByZeroException>(() => new Fraction(1, 0));
+            Assert.Equal("Denominator cannot be zero.", exception.Message);
+        }
+
+        [Theory]
+        [InlineData(2, 4, 1, 2)]    // Simplify 2/4 to 1/2
+        [InlineData(4, 8, 1, 2)]    // Simplify 4/8 to 1/2
+        [InlineData(3, 9, 1, 3)]    // Simplify 3/9 to 1/3
+        [InlineData(5, 15, 1, 3)]   // Simplify 5/15 to 1/3
+        [InlineData(8, 12, 2, 3)]   // Simplify 8/12 to 2/3
+        public void Constructor_ShouldSimplifyFraction(
+            int numerator, int denominator, int expectedNumerator, int expectedDenominator)
+        {
+            // Arrange & Act
+            var fraction = new Fraction(numerator, denominator);
+
+            // Assert
+            Assert.Equal(expectedNumerator, fraction.Numerator);
+            Assert.Equal(expectedDenominator, fraction.Denominator);
+        }
+
+        [Theory]
+        [InlineData(1, -2, -1, 2)]  // Negative denominator should be normalized
+        [InlineData(-1, -2, 1, 2)]  // Both negative should become positive
+        [InlineData(-3, 4, -3, 4)]  // Only numerator negative should stay
+        public void Constructor_ShouldNormalizeSign(
+            int numerator, int denominator, int expectedNumerator, int expectedDenominator)
+        {
+            // Arrange & Act
+            var fraction = new Fraction(numerator, denominator);
+
+            // Assert
+            Assert.Equal(expectedNumerator, fraction.Numerator);
+            Assert.Equal(expectedDenominator, fraction.Denominator);
+            Assert.True(fraction.Denominator > 0);
+        }
+
+        #endregion
+
+        #region Addition Operator Tests
+
+        [Theory]
+        [InlineData(1, 2, 1, 2, 1, 1)]     // 1/2 + 1/2 = 1/1
+        [InlineData(1, 3, 1, 3, 2, 3)]     // 1/3 + 1/3 = 2/3
+        [InlineData(1, 4, 1, 4, 1, 2)]     // 1/4 + 1/4 = 1/2
+        [InlineData(1, 2, 1, 3, 5, 6)]     // 1/2 + 1/3 = 5/6
+        [InlineData(2, 3, 3, 4, 17, 12)]   // 2/3 + 3/4 = 17/12
+        public void AdditionOperator_WithValidFractions_ShouldReturnCorrectResult(
+            int num1, int den1, int num2, int den2, int expectedNum, int expectedDen)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var result = fraction1 + fraction2;
+
+            // Assert
+            Assert.Equal(expectedNum, result.Numerator);
+            Assert.Equal(expectedDen, result.Denominator);
+        }
+
+        #endregion
+
+        #region Subtraction Operator Tests
+
+        [Theory]
+        [InlineData(1, 1, 1, 2, 1, 2)]     // 1/1 - 1/2 = 1/2
+        [InlineData(3, 4, 1, 4, 1, 2)]     // 3/4 - 1/4 = 1/2
+        [InlineData(5, 6, 1, 3, 1, 2)]     // 5/6 - 1/3 = 1/2
+        [InlineData(2, 3, 1, 4, 5, 12)]    // 2/3 - 1/4 = 5/12
+        [InlineData(1, 2, 1, 3, 1, 6)]     // 1/2 - 1/3 = 1/6
+        public void SubtractionOperator_WithValidFractions_ShouldReturnCorrectResult(
+            int num1, int den1, int num2, int den2, int expectedNum, int expectedDen)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var result = fraction1 - fraction2;
+
+            // Assert
+            Assert.Equal(expectedNum, result.Numerator);
+            Assert.Equal(expectedDen, result.Denominator);
+        }
+
+        #endregion
+
+        #region Multiplication Operator Tests
+
+        [Theory]
+        [InlineData(1, 2, 2, 3, 1, 3)]     // 1/2 * 2/3 = 2/6 = 1/3
+        [InlineData(3, 4, 2, 5, 3, 10)]    // 3/4 * 2/5 = 6/20 = 3/10
+        [InlineData(2, 3, 3, 4, 1, 2)]     // 2/3 * 3/4 = 6/12 = 1/2
+        [InlineData(1, 1, 1, 1, 1, 1)]     // 1/1 * 1/1 = 1/1
+        [InlineData(2, 1, 3, 1, 6, 1)]     // 2/1 * 3/1 = 6/1
+        public void MultiplicationOperator_WithValidFractions_ShouldReturnCorrectResult(
+            int num1, int den1, int num2, int den2, int expectedNum, int expectedDen)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var result = fraction1 * fraction2;
+
+            // Assert
+            Assert.Equal(expectedNum, result.Numerator);
+            Assert.Equal(expectedDen, result.Denominator);
+        }
+
+        #endregion
+
+        #region Division Operator Tests
+
+        [Theory]
+        [InlineData(1, 2, 1, 2, 1, 1)]     // 1/2 ÷ 1/2 = 1/1
+        [InlineData(3, 4, 1, 2, 3, 2)]     // 3/4 ÷ 1/2 = 3/2
+        [InlineData(2, 3, 4, 5, 5, 6)]     // 2/3 ÷ 4/5 = 10/12 = 5/6
+        [InlineData(1, 1, 2, 1, 1, 2)]     // 1/1 ÷ 2/1 = 1/2
+        public void DivisionOperator_WithValidFractions_ShouldReturnCorrectResult(
+            int num1, int den1, int num2, int den2, int expectedNum, int expectedDen)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var result = fraction1 / fraction2;
+
+            // Assert
+            Assert.Equal(expectedNum, result.Numerator);
+            Assert.Equal(expectedDen, result.Denominator);
+        }
+
+        [Fact]
+        public void DivisionOperator_WithZeroFraction_ShouldThrowDivideByZeroException()
+        {
+            // Arrange
+            var fraction1 = new Fraction(1, 2);
+            var fraction2 = new Fraction(0, 1);
+
+            // Act & Assert
+            var exception = Assert.Throws<DivideByZeroException>(() => fraction1 / fraction2);
+            Assert.Equal("Cannot divide by zero.", exception.Message);
+        }
+
+        #endregion
+
+        #region ToDouble Tests
+
+        [Theory]
+        [InlineData(1, 2, 0.5)]
+        [InlineData(3, 4, 0.75)]
+        [InlineData(2, 1, 2.0)]
+        [InlineData(0, 1, 0.0)]
+        [InlineData(5, 2, 2.5)]
+        [InlineData(-1, 2, -0.5)]
+        [InlineData(1, 3, 0.333333333333333)]
+        public void ToDouble_ShouldReturnCorrectDecimalValue(int numerator, int denominator, double expected)
+        {
+            // Arrange
+            var fraction = new Fraction(numerator, denominator);
+
+            // Act
+            var result = fraction.ToDouble();
+
+            // Assert
+            Assert.Equal(expected, result, 12); // 12 decimal places precision
+        }
+
+        #endregion
+
+        #region ToString Tests
+
+        [Theory]
+        [InlineData(1, 2, "1/2")]
+        [InlineData(3, 4, "3/4")]
+        [InlineData(-1, 2, "-1/2")]
+        [InlineData(2, 1, "2/1")]
+        [InlineData(0, 1, "0/1")]
+        public void ToString_ShouldReturnCorrectFormat(int numerator, int denominator, string expected)
+        {
+            // Arrange
+            var fraction = new Fraction(numerator, denominator);
+
+            // Act
+            var result = fraction.ToString();
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        #endregion
+
+        #region Equality Tests
+
+        [Theory]
+        [InlineData(1, 2, 1, 2, true)]     // Same fraction
+        [InlineData(1, 2, 2, 4, true)]     // Equivalent fractions
+        [InlineData(2, 3, 3, 4, false)]    // Different fractions
+        [InlineData(-1, 2, 1, -2, true)]   // Equivalent with different signs
+        public void Equals_WithFraction_ShouldReturnCorrectResult(
+            int num1, int den1, int num2, int den2, bool expected)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var result = fraction1.Equals(fraction2);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void Equals_WithNullObject_ShouldReturnFalse()
+        {
+            // Arrange
+            var fraction = new Fraction(1, 2);
+            object? nullObj = null;
+
+            // Act
+            var result = fraction.Equals(nullObj);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void Equals_WithDifferentTypeObject_ShouldReturnFalse()
+        {
+            // Arrange
+            var fraction = new Fraction(1, 2);
+            var differentObject = "not a fraction";
+
+            // Act
+            var result = fraction.Equals(differentObject);
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public void Equals_WithSameFractionObject_ShouldReturnTrue()
+        {
+            // Arrange
+            var fraction1 = new Fraction(1, 2);
+            object fraction2 = new Fraction(1, 2);
+
+            // Act
+            var result = fraction1.Equals(fraction2);
+
+            // Assert
+            Assert.True(result);
+        }
+
+        #endregion
+
+        #region GetHashCode Tests
+
+        [Theory]
+        [InlineData(1, 2, 1, 2, true)]     // Same fractions should have same hash code
+        [InlineData(1, 2, 2, 4, true)]     // Equivalent fractions should have same hash code
+        [InlineData(1, 2, 1, 3, false)]    // Different fractions should have different hash codes
+        public void GetHashCode_ForEquivalentFractions_ShouldBeEqual(
+            int num1, int den1, int num2, int den2, bool shouldBeEqual)
+        {
+            // Arrange
+            var fraction1 = new Fraction(num1, den1);
+            var fraction2 = new Fraction(num2, den2);
+
+            // Act
+            var hashCode1 = fraction1.GetHashCode();
+            var hashCode2 = fraction2.GetHashCode();
+
+            // Assert
+            if (shouldBeEqual)
+            {
+                Assert.Equal(hashCode1, hashCode2);
+            }
+            else
+            {
+                Assert.NotEqual(hashCode1, hashCode2);
+            }
+        }
+
+        #endregion
+
+        #region GCD Tests (Private method tested indirectly)
+
+        [Theory]
+        [InlineData(8, 12, 4)]     // GCD of 8 and 12 is 4
+        [InlineData(17, 13, 1)]    // GCD of 17 and 13 is 1 (primes)
+        [InlineData(15, 25, 5)]    // GCD of 15 and 25 is 5
+        public void GCD_ShouldComputeCorrectly_Indirectly(int a, int b, int expectedGcd)
+        {
+            // This tests the GCD indirectly through fraction simplification
+            // Arrange & Act
+            var fraction = new Fraction(a, b);
+
+            // Assert - if GCD works correctly, the fraction should be simplified
+            Assert.Equal(a / expectedGcd, fraction.Numerator);
+            Assert.Equal(b / expectedGcd, fraction.Denominator);
+        }
+
+        #endregion
+
+        #region Operator Overloads Additional Tests
+
+        [Fact]
+        public void Operators_WithSameFractions_ShouldWorkCorrectly()
+        {
+            // Arrange
+            var a = new Fraction(1, 2);
+            var b = new Fraction(1, 2);
+
+            // Act
+            var addResult = a + b;
+            var subtractResult = a - b;
+            var multiplyResult = a * b;
+            var divideResult = a / b;
+
+            // Assert
+            Assert.Equal(1, addResult.Numerator);
+            Assert.Equal(1, addResult.Denominator);
+
+            Assert.Equal(0, subtractResult.Numerator);
+            Assert.Equal(1, subtractResult.Denominator);
+
+            Assert.Equal(1, multiplyResult.Numerator);
+            Assert.Equal(4, multiplyResult.Denominator);
+
+            Assert.Equal(1, divideResult.Numerator);
+            Assert.Equal(1, divideResult.Denominator);
+        }
+
+        #endregion
+    }
+}
