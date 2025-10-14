@@ -1,0 +1,305 @@
+using FluentAssertions;
+using Moq;
+using OrderProcessing.Interfaces;
+using OrderProcessing.Models;
+using OrderProcessing.Services;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Xunit;
+
+namespace OrderProcessing.Tests.IntegrationTests
+{
+    public class OrderServiceIntegrationTests
+    {
+        private readonly Mock<IOrderRepository> _orderRepositoryMock;
+        private readonly Mock<ICustomerRepository> _customerRepositoryMock;
+        private readonly Mock<IMessageBus> _messageBusMock;
+        private readonly OrderService _orderService;
+
+        public OrderServiceIntegrationTests()
+        {
+            _orderRepositoryMock = new Mock<IOrderRepository>();
+            _customerRepositoryMock = new Mock<ICustomerRepository>();
+            _messageBusMock = new Mock<IMessageBus>();
+            
+            _orderService = new OrderService(
+                _orderRepositoryMock.Object,
+                _customerRepositoryMock.Object,
+                _messageBusMock.Object
+            );
+        }
+
+        [Fact]
+        public async Task CreateOrderAsync_WithValidCustomer_ShouldCreateOrderAndPublishEvent()
+        {
+            // Arrange
+            var customerId = Guid.NewGuid();
+            var customer = new Customer { Id = customerId, Name = "Test Customer", Email = "test@email.com" };
+            var totalAmount = 100.50m;
+
+            _customerRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(customerId))
+                .ReturnsAsync(customer);
+
+            _orderRepositoryMock
+                .Setup(repo => repo.AddAsync(It.IsAny<Order>()))
+                .Returns(Task.CompletedTask);
+
+            _messageBusMock
+                .Setup(bus => bus.PublishAsync("order.created", It.IsAny<object>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            var result = await _orderService.CreateOrderAsync(customerId, totalAmount);
+
+            // Assert
+            result.Should().NotBeNull();
+            result.CustomerId.Should().Be(customerId);
+            result.TotalAmount.Should().Be(totalAmount);
+            result.Status.Should().Be(OrderStatus.Pending);
+
+            _customerRepositoryMock.Verify(repo => repo.GetByIdAsync(customerId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.AddAsync(It.Is<Order>(o => 
+                o.CustomerId == customerId && o.TotalAmount == totalAmount)), Times.Once);
+            _messageBusMock.Verify(bus => bus.PublishAsync("order.created", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CreateOrderAsync_WithInvalidCustomer_ShouldThrowException()
+        {
+            // Arrange
+            var invalidCustomerId = Guid.NewGuid();
+            var totalAmount = 100.50m;
+
+            _customerRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(invalidCustomerId))
+                .ReturnsAsync((Customer?)null);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.CreateOrderAsync(invalidCustomerId, totalAmount));
+
+            _customerRepositoryMock.Verify(repo => repo.GetByIdAsync(invalidCustomerId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.AddAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_WithValidOrder_ShouldUpdateStatusAndPublishEvent()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var order = new Order 
+            { 
+                Id = orderId, 
+                CustomerId = Guid.NewGuid(), 
+                Status = OrderStatus.Pending 
+            };
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(orderId))
+                .ReturnsAsync(order);
+
+            _orderRepositoryMock
+                .Setup(repo => repo.UpdateAsync(It.IsAny<Order>()))
+                .Returns(Task.CompletedTask);
+
+            _messageBusMock
+                .Setup(bus => bus.PublishAsync("order.paid", It.IsAny<object>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ConfirmPaymentAsync(orderId);
+
+            // Assert
+            order.Status.Should().Be(OrderStatus.Paid);
+            
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(orderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.Is<Order>(o => 
+                o.Id == orderId && o.Status == OrderStatus.Paid)), Times.Once);
+            _messageBusMock.Verify(bus => bus.PublishAsync("order.paid", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task ConfirmPaymentAsync_WithInvalidOrder_ShouldThrowException()
+        {
+            // Arrange
+            var invalidOrderId = Guid.NewGuid();
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(invalidOrderId))
+                .ReturnsAsync((Order?)null);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.ConfirmPaymentAsync(invalidOrderId));
+
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(invalidOrderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task CancelOrderAsync_WithValidOrder_ShouldUpdateStatusAndPublishEvent()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var order = new Order 
+            { 
+                Id = orderId, 
+                CustomerId = Guid.NewGuid(), 
+                Status = OrderStatus.Pending 
+            };
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(orderId))
+                .ReturnsAsync(order);
+
+            _orderRepositoryMock
+                .Setup(repo => repo.UpdateAsync(It.IsAny<Order>()))
+                .Returns(Task.CompletedTask);
+
+            _messageBusMock
+                .Setup(bus => bus.PublishAsync("order.cancelled", It.IsAny<object>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.CancelOrderAsync(orderId);
+
+            // Assert
+            order.Status.Should().Be(OrderStatus.Cancelled);
+            
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(orderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.Is<Order>(o => 
+                o.Id == orderId && o.Status == OrderStatus.Cancelled)), Times.Once);
+            _messageBusMock.Verify(bus => bus.PublishAsync("order.cancelled", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task CancelOrderAsync_WithInvalidOrder_ShouldThrowException()
+        {
+            // Arrange
+            var invalidOrderId = Guid.NewGuid();
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(invalidOrderId))
+                .ReturnsAsync((Order?)null);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.CancelOrderAsync(invalidOrderId));
+
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(invalidOrderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ShipOrderAsync_WithPaidOrder_ShouldUpdateStatusAndPublishEvent()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var order = new Order 
+            { 
+                Id = orderId, 
+                CustomerId = Guid.NewGuid(), 
+                Status = OrderStatus.Paid 
+            };
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(orderId))
+                .ReturnsAsync(order);
+
+            _orderRepositoryMock
+                .Setup(repo => repo.UpdateAsync(It.IsAny<Order>()))
+                .Returns(Task.CompletedTask);
+
+            _messageBusMock
+                .Setup(bus => bus.PublishAsync("order.shipped", It.IsAny<object>()))
+                .Returns(Task.CompletedTask);
+
+            // Act
+            await _orderService.ShipOrderAsync(orderId);
+
+            // Assert
+            order.Status.Should().Be(OrderStatus.Shipped);
+            
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(orderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.Is<Order>(o => 
+                o.Id == orderId && o.Status == OrderStatus.Shipped)), Times.Once);
+            _messageBusMock.Verify(bus => bus.PublishAsync("order.shipped", It.IsAny<object>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task ShipOrderAsync_WithInvalidOrder_ShouldThrowException()
+        {
+            // Arrange
+            var invalidOrderId = Guid.NewGuid();
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(invalidOrderId))
+                .ReturnsAsync((Order?)null);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.ShipOrderAsync(invalidOrderId));
+
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(invalidOrderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+
+        [Fact]
+        public async Task ShipOrderAsync_WithNonPaidOrder_ShouldThrowException()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var order = new Order 
+            { 
+                Id = orderId, 
+                CustomerId = Guid.NewGuid(), 
+                Status = OrderStatus.Pending  // Not paid!
+            };
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(orderId))
+                .ReturnsAsync(order);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.ShipOrderAsync(orderId));
+
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(orderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+
+        [Theory]
+        [InlineData(OrderStatus.Cancelled)]
+        [InlineData(OrderStatus.Shipped)]
+        public async Task ShipOrderAsync_WithWrongStatus_ShouldThrowException(OrderStatus status)
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            var order = new Order 
+            { 
+                Id = orderId, 
+                CustomerId = Guid.NewGuid(), 
+                Status = status
+            };
+
+            _orderRepositoryMock
+                .Setup(repo => repo.GetByIdAsync(orderId))
+                .ReturnsAsync(order);
+
+            // Act & Assert
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                _orderService.ShipOrderAsync(orderId));
+
+            _orderRepositoryMock.Verify(repo => repo.GetByIdAsync(orderId), Times.Once);
+            _orderRepositoryMock.Verify(repo => repo.UpdateAsync(It.IsAny<Order>()), Times.Never);
+            _messageBusMock.Verify(bus => bus.PublishAsync(It.IsAny<string>(), It.IsAny<object>()), Times.Never);
+        }
+    }
+}
