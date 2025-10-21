@@ -1,0 +1,294 @@
+Я помогу вам создать проект для валидации пароля с модульными тестами и настройкой GitHub Actions. Вот полное решение:
+
+1. Создание проекта библиотеки классов
+
+PasswordValidator.cs:
+
+```csharp
+using System;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+namespace PasswordValidationLibrary
+{
+    public static class PasswordValidator
+    {
+        public static bool ValidatePassword(string password)
+        {
+            if (string.IsNullOrEmpty(password))
+                return false;
+
+            // Проверка минимальной длины
+            if (password.Length < 8)
+                return false;
+
+            // Проверка наличия хотя бы одной цифры
+            if (!password.Any(char.IsDigit))
+                return false;
+
+            // Проверка наличия хотя бы одной латинской буквы
+            if (!password.Any(c => IsLatinLetter(c)))
+                return false;
+
+            return true;
+        }
+
+        public static bool ValidatePasswordEnhanced(string password)
+        {
+            if (!ValidatePassword(password))
+                return false;
+
+            // Дополнительные проверки для расширенной валидации
+            // Проверка наличия буквы в верхнем регистре
+            if (!password.Any(char.IsUpper))
+                return false;
+
+            // Проверка наличия буквы в нижнем регистре
+            if (!password.Any(char.IsLower))
+                return false;
+
+            // Проверка наличия специального символа
+            if (!password.Any(c => IsSpecialCharacter(c)))
+                return false;
+
+            return true;
+        }
+
+        private static bool IsLatinLetter(char c)
+        {
+            return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        }
+
+        private static bool IsSpecialCharacter(char c)
+        {
+            // Специальные символы: !@#$%^&*()_+-=[]{}|;:'",.<>?/
+            string specialCharacters = "!@#$%^&*()_+-=[]{}|;:'\",.<>?/";
+            return specialCharacters.Contains(c);
+        }
+    }
+}
+```
+
+2. Модульные тесты
+
+PasswordValidatorTests.cs:
+
+```csharp
+using Xunit;
+
+namespace PasswordValidationLibrary.Tests
+{
+    public class PasswordValidatorTests
+    {
+        [Theory]
+        [InlineData("Password1", true)]  // Valid: 8+ chars, digit, latin letter
+        [InlineData("Pass123", false)]   // Invalid: less than 8 chars
+        [InlineData("Password", false)]  // Invalid: no digit
+        [InlineData("12345678", false)]  // Invalid: no latin letter
+        [InlineData("", false)]          // Invalid: empty
+        [InlineData(null, false)]        // Invalid: null
+        [InlineData("Пароль123", false)] // Invalid: non-latin letters
+        [InlineData("Short1", false)]    // Invalid: too short
+        [InlineData("VeryLongPassword123", true)] // Valid: meets all requirements
+        public void ValidatePassword_VariousInputs_ReturnsExpectedResult(string password, bool expected)
+        {
+            // Act
+            bool result = PasswordValidator.ValidatePassword(password);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("Password1!", true)]     // Valid: meets all enhanced requirements
+        [InlineData("Password1", false)]     // Invalid: no special character
+        [InlineData("password1!", false)]    // Invalid: no uppercase
+        [InlineData("PASSWORD1!", false)]    // Invalid: no lowercase
+        [InlineData("Pass!", false)]         // Invalid: no digit
+        [InlineData("Pass123!", true)]       // Valid: meets all requirements
+        public void ValidatePasswordEnhanced_VariousInputs_ReturnsExpectedResult(string password, bool expected)
+        {
+            // Act
+            bool result = PasswordValidator.ValidatePasswordEnhanced(password);
+
+            // Assert
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void ValidatePassword_WithValidPassword_ReturnsTrue()
+        {
+            // Arrange
+            string validPassword = "Secure123";
+
+            // Act
+            bool result = PasswordValidator.ValidatePassword(validPassword);
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ValidatePassword_WithInvalidPassword_ReturnsFalse()
+        {
+            // Arrange
+            string invalidPassword = "short";
+
+            // Act
+            bool result = PasswordValidator.ValidatePassword(invalidPassword);
+
+            // Assert
+            Assert.False(result);
+        }
+    }
+}
+```
+
+3. Файлы проекта
+
+PasswordValidationLibrary.csproj:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
+```
+
+PasswordValidationLibrary.Tests.csproj:
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.6.6" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PasswordValidationLibrary\PasswordValidationLibrary.csproj" />
+  </ItemGroup>
+
+</Project>
+```
+
+4. GitHub Actions workflow
+
+.github/workflows/autotests.yml:
+
+```yaml
+name: .NET Regression Tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build solution
+      run: dotnet build --no-restore --configuration Release
+
+    - name: Run tests and generate TRX log
+      run: dotnet test --no-build --configuration Release --logger "trx;logFileName=test_results.trx"
+
+    - name: Test Report
+      uses: dorny/test-reporter@v2
+      if: success() || failure()
+      with:
+        name: Test results
+        path: "**/*test_results.trx"
+        reporter: dotnet-trx
+```
+
+5. README.md с бейджем
+
+```markdown
+# Password Validation Library
+
+Библиотека для валидации паролей с поддержкой модульного тестирования и CI/CD.
+
+![Test Results](https://github.com/your-username/your-repository/actions/workflows/autotests.yml/badge.svg)
+
+## Описание
+
+Эта библиотека предоставляет методы для валидации паролей согласно следующим требованиям:
+
+### Базовая валидация:
+- Длина не менее 8 символов
+- Хотя бы одна цифра
+- Хотя бы одна латинская буква
+
+### Расширенная валидация:
+- Все требования базовой валидации
+- Хотя бы одна буква в верхнем регистре
+- Хотя бы одна буква в нижнем регистре
+- Хотя бы один специальный символ
+
+## Использование
+
+```csharp
+// Базовая валидация
+bool isValid = PasswordValidator.ValidatePassword("MyPassword123");
+
+// Расширенная валидация
+bool isEnhancedValid = PasswordValidator.ValidatePasswordEnhanced("MyPassword123!");
+```
+
+Тестирование
+
+Проект включает модульные тесты, которые автоматически запускаются через GitHub Actions при каждом push и pull request в ветку master.
+
+```
+
+## Структура решения:
+```
+
+Solution/
+├──PasswordValidationLibrary/
+│├── PasswordValidator.cs
+│└── PasswordValidationLibrary.csproj
+├──PasswordValidationLibrary.Tests/
+│├── PasswordValidatorTests.cs
+│└── PasswordValidationLibrary.Tests.csproj
+├──.github/
+│└── workflows/
+│└── autotests.yml
+└──README.md
+
+```
+
+Это решение полностью соответствует вашим требованиям и включает:
+- Библиотеку классов с методами валидации пароля
+- Модульные тесты с позитивными и негативными сценариями
+- GitHub Actions workflow для автоматического тестирования
+- Поддержку расширенной валидации с дополнительными требованиями
+- Генерацию отчетов тестирования в формате TRX
