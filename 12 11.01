@@ -1,0 +1,145 @@
+using Microsoft.EntityFrameworkCore;
+using System.Data;
+using Microsoft.Data.SqlClient;
+
+public class CinemaService
+{
+    private readonly CinemaContext _context;
+
+    public CinemaService(CinemaContext context)
+    {
+        _context = context;
+    }
+
+    // 5.1 FromSqlRaw - сортировка фильмов по указанному столбцу
+    public List<Movie> GetMoviesSorted(string sortColumn)
+    {
+        var validColumns = new[] { "Title", "Year", "Price", "Genre" };
+        
+        if (!validColumns.Contains(sortColumn))
+            throw new ArgumentException("Недопустимый столбец для сортировки");
+
+        var sql = $"SELECT * FROM Movies ORDER BY {sortColumn}";
+        
+        return _context.Movies
+            .FromSqlRaw(sql)
+            .AsNoTracking()
+            .ToList();
+    }
+
+    // 5.2 FromSql с параметрами - фильмы по названию и году
+    public List<Movie> GetMoviesByTitleAndYear(string title, int minYear)
+    {
+        var sql = "SELECT * FROM Movies WHERE Title = {0} AND Year >= {1}";
+        
+        return _context.Movies
+            .FromSqlRaw(sql, title, minYear)
+            .AsNoTracking()
+            .ToList();
+    }
+
+    // 5.3 ExecuteSqlRaw - увеличение цены сеансов в кинозале
+    public int IncreaseSessionPrices(int cinemaHall, decimal increaseAmount)
+    {
+        var sql = "UPDATE Sessions SET Price = Price + {0} WHERE CinemaHall = {1}";
+        
+        var affectedRows = _context.Database.ExecuteSqlRaw(sql, increaseAmount, cinemaHall);
+        _context.SaveChanges();
+        
+        return affectedRows;
+    }
+
+    // 5.4 SqlQuery - список жанров фильма по ID
+    public List<string> GetMovieGenres(int movieId)
+    {
+        var sql = "SELECT Genre FROM Movies WHERE Id = @movieId";
+        
+        var connection = _context.Database.GetDbConnection();
+        using var command = connection.CreateCommand();
+        
+        command.CommandText = sql;
+        command.Parameters.Add(new SqlParameter("@movieId", movieId));
+        
+        if (connection.State != ConnectionState.Open)
+            connection.Open();
+            
+        var genres = new List<string>();
+        using var reader = command.ExecuteReader();
+        
+        while (reader.Read())
+        {
+            if (!reader.IsDBNull(0))
+                genres.Add(reader.GetString(0));
+        }
+        
+        return genres;
+    }
+
+    // 5.5 SqlQuery - дата и время сеанса по номеру билета
+    public DateTime? GetSessionDateTimeByTicket(int ticketId)
+    {
+        var sql = @"
+            SELECT s.DateTime 
+            FROM Sessions s
+            INNER JOIN Tickets t ON s.Id = t.SessionId
+            WHERE t.Id = @ticketId";
+            
+        var connection = _context.Database.GetDbConnection();
+        using var command = connection.CreateCommand();
+        
+        command.CommandText = sql;
+        command.Parameters.Add(new SqlParameter("@ticketId", ticketId));
+        
+        if (connection.State != ConnectionState.Open)
+            connection.Open();
+            
+        using var reader = command.ExecuteReader();
+        
+        if (reader.Read() && !reader.IsDBNull(0))
+            return reader.GetDateTime(0);
+        
+        return null;
+    }
+
+    // 5.6.1 EF.Functions.Like - поиск фильмов по диапазону букв
+    public List<Movie> GetMoviesByLetterRange(char startLetter, char endLetter)
+    {
+        var pattern = $"[{startLetter}-{endLetter}]%";
+        
+        return _context.Movies
+            .Where(m => EF.Functions.Like(m.Title, pattern))
+            .AsNoTracking()
+            .ToList();
+    }
+
+    // 5.6.2 Агрегатные функции - статистика цен сеансов по фильму
+    public (decimal min, decimal max, decimal avg) GetSessionPriceStats(int movieId)
+    {
+        var stats = _context.Sessions
+            .Where(s => s.MovieId == movieId)
+            .Select(s => s.Price)
+            .AsNoTracking()
+            .ToList();
+            
+        if (!stats.Any())
+            return (0, 0, 0);
+            
+        return (
+            stats.Min(),
+            stats.Max(),
+            stats.Average()
+        );
+    }
+
+    // 5.7 Вызов хранимой процедуры со входными параметрами
+    public List<Ticket> GetTicketsByPhone(string phone)
+    {
+        var sql = "EXEC GetTicketsByPhone @Phone";
+        
+        return _context.Tickets
+            .FromSqlRaw(sql, new SqlParameter("@Phone", phone))
+            .AsNoTracking()
+            .ToList();
+    }
+
+    // 5.8 Вызов хранимой процедуры с выходными парамет
