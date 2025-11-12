@@ -83,7 +83,7 @@ public class AuthService
         var user = _context.CinemaUsers
             .Include(u => u.Role)
             .FirstOrDefault(u => u.Login == login);
-        return user?.Role?.RoleName;
+        return user?.Role?.Name; // Было RoleName
     }
 
     // Получение списка привилегий по логину
@@ -95,9 +95,9 @@ public class AuthService
             .FirstOrDefault();
 
         return _context.CinemaRolePrivileges
-            .Where(rp => rp.UserRoleId == roleId)
+            .Where(rp => rp.RoleId == roleId) // Было UserRoleId
             .Include(rp => rp.Privilege)
-            .Select(rp => rp.Privilege.PrivilegeName)
+            .Select(rp => rp.Privilege.Title) // Было PrivilegeName
             .ToList();
     }
 
@@ -105,14 +105,14 @@ public class AuthService
     public List<string> GetPrivilegesByRole(string roleName)
     {
         var roleId = _context.CinemaUserRoles
-            .Where(r => r.RoleName == roleName)
-            .Select(r => r.UserRoleId)
+            .Where(r => r.Name == roleName) // Было RoleName
+            .Select(r => r.Id) // Было UserRoleId
             .FirstOrDefault();
 
         return _context.CinemaRolePrivileges
-            .Where(rp => rp.UserRoleId == roleId)
+            .Where(rp => rp.RoleId == roleId) // Было UserRoleId
             .Include(rp => rp.Privilege)
-            .Select(rp => rp.Privilege.PrivilegeName)
+            .Select(rp => rp.Privilege.Title) // Было PrivilegeName
             .ToList();
     }
 
@@ -139,5 +139,13 @@ public class AuthService
         user.RoleId = newRoleId;
         _context.SaveChanges();
         return true;
+    }
+
+    // Получение пользователя по ID
+    public CinemaUser GetUserById(int userId)
+    {
+        return _context.CinemaUsers
+            .Include(u => u.Role)
+            .FirstOrDefault(u => u.Id == userId); // Было UserId
     }
 }
