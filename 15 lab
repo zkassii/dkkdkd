@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -33,7 +34,7 @@ public class AuthService
             Login = login,
             PasswordHash = HashPassword(password),
             IncorrectPasswordAttempts = 0,
-            UserRoleId = 3 // Роль "Посетитель"
+            RoleId = 3 // Роль "Посетитель"
         };
 
         _context.CinemaUsers.Add(user);
@@ -45,25 +46,32 @@ public class AuthService
     public CinemaUser Authenticate(string login, string password)
     {
         var user = _context.CinemaUsers
-            .Include(u => u.UserRole)
+            .Include(u => u.Role)
             .FirstOrDefault(u => u.Login == login);
 
         if (user == null) return null;
 
+        // Проверка блокировки
         if (user.UnblockDate.HasValue && user.UnblockDate > DateTime.Now)
-            return null; // Пользователь заблокирован
+            return null;
 
+        // Проверка пароля
         if (user.PasswordHash == HashPassword(password))
         {
+            // Сброс счетчика неверных попыток
             user.IncorrectPasswordAttempts = 0;
             _context.SaveChanges();
             return user;
         }
         else
         {
+            // Увеличение счетчика неверных попыток
             user.IncorrectPasswordAttempts++;
+            
+            // Блокировка после 3 неверных попыток
             if (user.IncorrectPasswordAttempts >= 3)
                 user.UnblockDate = DateTime.Now.AddMinutes(1);
+            
             _context.SaveChanges();
             return null;
         }
@@ -73,21 +81,22 @@ public class AuthService
     public string GetUserRole(string login)
     {
         var user = _context.CinemaUsers
-            .Include(u => u.UserRole)
+            .Include(u => u.Role)
             .FirstOrDefault(u => u.Login == login);
-        return user?.UserRole?.RoleName;
+        return user?.Role?.RoleName;
     }
 
     // Получение списка привилегий по логину
     public List<string> GetUserPrivileges(string login)
     {
-        var role = _context.CinemaUsers
+        var roleId = _context.CinemaUsers
             .Where(u => u.Login == login)
-            .Select(u => u.UserRoleId)
+            .Select(u => u.RoleId)
             .FirstOrDefault();
 
         return _context.CinemaRolePrivileges
-            .Where(rp => rp.UserRoleId == role)
+            .Where(rp => rp.UserRoleId == roleId)
+            .Include(rp => rp.Privilege)
             .Select(rp => rp.Privilege.PrivilegeName)
             .ToList();
     }
@@ -102,7 +111,33 @@ public class AuthService
 
         return _context.CinemaRolePrivileges
             .Where(rp => rp.UserRoleId == roleId)
+            .Include(rp => rp.Privilege)
             .Select(rp => rp.Privilege.PrivilegeName)
             .ToList();
+    }
+
+    // Получение всех ролей
+    public List<CinemaUserRole> GetAllRoles()
+    {
+        return _context.CinemaUserRoles.ToList();
+    }
+
+    // Получение всех пользователей
+    public List<CinemaUser> GetAllUsers()
+    {
+        return _context.CinemaUsers
+            .Include(u => u.Role)
+            .ToList();
+    }
+
+    // Изменение роли пользователя
+    public bool ChangeUserRole(int userId, int newRoleId)
+    {
+        var user = _context.CinemaUsers.Find(userId);
+        if (user == null) return false;
+
+        user.RoleId = newRoleId;
+        _context.SaveChanges();
+        return true;
     }
 }
