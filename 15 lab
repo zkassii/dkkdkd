@@ -1,0 +1,108 @@
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
+
+public class AuthService
+{
+    private readonly AuthDbContext _context;
+
+    public AuthService(AuthDbContext context)
+    {
+        _context = context;
+    }
+
+    // Закрытый метод хэширования пароля
+    private string HashPassword(string password)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(password);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
+    }
+
+    // Регистрация нового пользователя
+    public bool Register(string login, string password)
+    {
+        if (_context.CinemaUsers.Any(u => u.Login == login))
+            return false;
+
+        var user = new CinemaUser
+        {
+            Login = login,
+            PasswordHash = HashPassword(password),
+            IncorrectPasswordAttempts = 0,
+            UserRoleId = 3 // Роль "Посетитель"
+        };
+
+        _context.CinemaUsers.Add(user);
+        _context.SaveChanges();
+        return true;
+    }
+
+    // Аутентификация пользователя
+    public CinemaUser Authenticate(string login, string password)
+    {
+        var user = _context.CinemaUsers
+            .Include(u => u.UserRole)
+            .FirstOrDefault(u => u.Login == login);
+
+        if (user == null) return null;
+
+        if (user.UnblockDate.HasValue && user.UnblockDate > DateTime.Now)
+            return null; // Пользователь заблокирован
+
+        if (user.PasswordHash == HashPassword(password))
+        {
+            user.IncorrectPasswordAttempts = 0;
+            _context.SaveChanges();
+            return user;
+        }
+        else
+        {
+            user.IncorrectPasswordAttempts++;
+            if (user.IncorrectPasswordAttempts >= 3)
+                user.UnblockDate = DateTime.Now.AddMinutes(1);
+            _context.SaveChanges();
+            return null;
+        }
+    }
+
+    // Получение роли пользователя
+    public string GetUserRole(string login)
+    {
+        var user = _context.CinemaUsers
+            .Include(u => u.UserRole)
+            .FirstOrDefault(u => u.Login == login);
+        return user?.UserRole?.RoleName;
+    }
+
+    // Получение списка привилегий по логину
+    public List<string> GetUserPrivileges(string login)
+    {
+        var role = _context.CinemaUsers
+            .Where(u => u.Login == login)
+            .Select(u => u.UserRoleId)
+            .FirstOrDefault();
+
+        return _context.CinemaRolePrivileges
+            .Where(rp => rp.UserRoleId == role)
+            .Select(rp => rp.Privilege.PrivilegeName)
+            .ToList();
+    }
+
+    // Получение списка привилегий по роли
+    public List<string> GetPrivilegesByRole(string roleName)
+    {
+        var roleId = _context.CinemaUserRoles
+            .Where(r => r.RoleName == roleName)
+            .Select(r => r.UserRoleId)
+            .FirstOrDefault();
+
+        return _context.CinemaRolePrivileges
+            .Where(rp => rp.UserRoleId == roleId)
+            .Select(rp => rp.Privilege.PrivilegeName)
+            .ToList();
+    }
+}
