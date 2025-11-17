@@ -1,0 +1,37 @@
+public interface IUserService
+{
+    Task<CinemaUser?> RegisterUser(string login, string passwordHash, int defaultRoleId);
+}
+
+public class UserService : IUserService
+{
+    private readonly ApplicationDbContext _context; // Ваш контекст БД
+
+    public UserService(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<CinemaUser?> RegisterUser(string login, string passwordHash, int defaultRoleId)
+    {
+        // 1. Проверка на существование пользователя (опционально)
+        if (_context.CinemaUsers.Any(u => u.Login == login))
+        {
+            return null; // Пользователь уже существует
+        }
+
+        // 2. Создание нового пользователя
+        var newUser = new CinemaUser
+        {
+            Login = login,
+            PasswordHash = passwordHash,
+            RoleId = defaultRoleId // Роль по умолчанию
+        };
+
+        // 3. Сохранение в БД
+        _context.CinemaUsers.Add(newUser);
+        await _context.SaveChangesAsync();
+
+        return newUser;
+    }
+}
