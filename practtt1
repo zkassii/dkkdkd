@@ -16,3 +16,33 @@ JOIN
 JOIN
     Hall H ON S.HallId = H.HallId;
 GO
+
+
+
+
+
+
+CREATE VIEW V_FilmInfo
+AS
+SELECT
+    F.FilmId AS 'Код фильма',
+    F.Title AS 'Название',
+    F.ReleaseYear AS 'Год выхода',
+    -- Форматирование длительности в "ч Мм"
+    CONCAT_WS(' ', 
+        CAST(F.Duration / 60 AS NVARCHAR) + ' ч', 
+        [span_3](start_span)CAST(F.Duration % 60 AS NVARCHAR) + ' Мм') AS 'Длительность',[span_3](end_span)
+    -[span_4](start_span)- Объединение названий жанров в одну строку[span_4](end_span)
+    STRING_AGG(G.Name, ', ') AS 'Жанр',
+    F.Description AS 'Описание',
+    F.StartRental AS 'Начало проката'
+FROM
+    Film F
+JOIN
+    FilmGenre FG ON F.FilmId = FG.FilmId
+JOIN
+    Genre G ON FG.GenreId = G.GenreId
+GROUP BY
+    F.FilmId, F.Title, F.ReleaseYear, F.Duration, F.Description, F.StartRental;
+GO
+
