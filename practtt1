@@ -1,0 +1,18 @@
+CREATE VIEW V_AllSessionsWithCapacity
+AS
+SELECT
+    S.SessionId AS 'Код сеанса',
+    F.Title AS 'Название фильма',
+    H.Cinema AS 'Кинотеатр',
+    H.HallNumber AS 'Зал',
+    S.Price AS 'Цена',
+    S.StartDate AS 'Дата и время начала',
+    -[span_2](start_span)- Вычисление общего количества мест, приведение к INT для предотвращения переполнения[span_2](end_span)
+    CAST(H.RowsCount AS INT) * H.SeatsCount AS 'Общее количество мест'
+FROM
+    Session S
+JOIN
+    Film F ON S.FilmId = F.FilmId
+JOIN
+    Hall H ON S.HallId = H.HallId;
+GO
