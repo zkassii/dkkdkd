@@ -1,0 +1,95 @@
+Вот решения для заданий 5.1–5.5 на MS SQL Server:
+
+```sql
+-- 5.1: Представление с сегодняшними киносеансами (исключая будущие)
+CREATE VIEW TodaySessions AS
+SELECT 
+    s.session_id AS [Код сеанса],
+    m.title AS [Название фильма],
+    c.name AS [Кинотеатр],
+    h.name AS [Зал],
+    s.price AS [Цена],
+    FORMAT(s.start_time, 'HH:mm') AS [Время начала],
+    FORMAT(DATEADD(MINUTE, m.duration, s.start_time), 'HH:mm') AS [Время конца],
+    m.duration AS [Длительность]
+FROM Sessions s
+JOIN Movies m ON s.movie_id = m.movie_id
+JOIN Cinemas c ON s.cinema_id = c.cinema_id
+JOIN Halls h ON s.hall_id = h.hall_id
+WHERE CAST(s.start_time AS DATE) = CAST(GETDATE() AS DATE)
+  AND s.start_time <= GETDATE();
+
+-- 5.2: Представление со всеми киносеансами и количеством мест
+CREATE VIEW AllSessionsWithSeats AS
+SELECT 
+    s.session_id AS [Код сеанса],
+    m.title AS [Название фильма],
+    c.name AS [Кинотеатр],
+    h.name AS [Зал],
+    s.price AS [Цена],
+    s.start_time AS [Дата и время начала],
+    CAST(h.rows_count AS INT) * CAST(h.seats_per_row AS INT) AS [Общее количество мест]
+FROM Sessions s
+JOIN Movies m ON s.movie_id = m.movie_id
+JOIN Cinemas c ON s.cinema_id = c.cinema_id
+JOIN Halls h ON s.hall_id = h.hall_id;
+
+-- 5.3: Представление с информацией о фильмах в нужном формате
+CREATE VIEW MoviesInfo AS
+SELECT 
+    m.movie_id AS [Код],
+    m.title AS [Название],
+    m.release_year AS [Год выхода],
+    CONCAT(m.duration / 60, ' ч ', m.duration % 60, ' м') AS [Длительность],
+    ISNULL(STRING_AGG(g.name, ', '), 'Не указан') AS [Жанр],
+    m.description AS [Описание],
+    m.release_date AS [Начало проката]
+FROM Movies m
+LEFT JOIN MovieGenres mg ON m.movie_id = mg.movie_id
+LEFT JOIN Genres g ON mg.genre_id = g.genre_id
+GROUP BY m.movie_id, m.title, m.release_year, m.duration, m.description, m.release_date;
+
+-- 5.4: Представление с фильмами, которые выйдут в ближайший месяц
+CREATE VIEW ComingSoonMovies AS
+SELECT *
+FROM MoviesInfo
+WHERE [Начало проката] BETWEEN GETDATE() AND DATEADD(MONTH, 1, GETDATE());
+
+-- 5.5: Обновляемое представление для будущих 3D сеансов
+CREATE VIEW Future3DSessions AS
+SELECT 
+    session_id,
+    movie_id,
+    cinema_id,
+    hall_id,
+    price,
+    start_time
+FROM Sessions
+WHERE start_time > GETDATE() 
+  AND format_id = (SELECT format_id FROM Formats WHERE name = '3D')
+WITH CHECK OPTION;
+```
+
+Примечания:
+
+1. Предполагается, что в базе данных существуют следующие таблицы:
+   · Sessions (сеансы)
+   · Movies (фильмы)
+   · Cinemas (кинотеатры)
+   · Halls (залы)
+   · Formats (форматы)
+   · Genres (жанры)
+   · MovieGenres (связь фильмов и жанров)
+2. Для задания 5.5 предполагается, что:
+   · Есть таблица Formats с форматами сеансов
+   · В таблице Sessions есть поле format_id
+   · Формат "3D" существует в таблице Formats
+3. WITH CHECK OPTION гарантирует, что через представление можно вставлять/обновлять только данные, соответствующие условию представления.
+4. Для тестирования обновляемого представления можно использовать:
+   ```sql
+   -- Вставка новой записи
+   INSERT INTO Future3DSessions (...) VALUES (...);
+   
+   -- Обновление существующей записи
+   UPDATE Future3DSessions SET ... WHERE ...;
+   ```
