@@ -1,0 +1,14 @@
+CREATE FUNCTION dbo.GetMoviesByGenre(@GenreName NVARCHAR(50))
+RETURNS TABLE
+AS
+RETURN
+(
+    SELECT 
+        f.Код, 
+        f.Название, 
+        f.Жанры
+    FROM Фильм f
+    WHERE f.Жанры LIKE '%' + @GenreName + '%'
+);
+
+SELECT * FROM dbo.GetMoviesByGenre('фантастика');
