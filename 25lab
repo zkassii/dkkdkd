@@ -1,0 +1,552 @@
+Понял, сделаю WPF приложение для экспорта данных. Вот полная реализация:
+
+Лабораторная работа №25: WPF приложение для экспорта данных
+
+1. Создание проекта и моделей
+
+Film.cs
+
+```csharp
+public class Film
+{
+    public int Filmid { get; set; }
+    public string Title { get; set; }
+    public int Duration { get; set; }
+    public int ReleaseYear { get; set; }
+    public string Description { get; set; }
+    public byte[] Poster { get; set; }
+    public string AgeRating { get; set; }
+    public DateTime StartRental { get; set; }
+    public DateTime EndRental { get; set; }
+}
+```
+
+Session.cs
+
+```csharp
+public class Session
+{
+    public int Sessionid { get; set; }
+    public int Filmid { get; set; }
+    public int Hallid { get; set; }
+    public decimal Price { get; set; }
+    public DateTime StartDate { get; set; }
+    public bool Is3D { get; set; }
+    
+    public Film Film { get; set; }
+    public Hall Hall { get; set; }
+}
+```
+
+Hall.cs
+
+```csharp
+public class Hall
+{
+    public int Hallid { get; set; }
+    public int CinemaId { get; set; }
+    public string HallNumber { get; set; }
+    public int RowsCount { get; set; }
+    public int SeatsCount { get; set; }
+    public bool IsVIP { get; set; }
+    
+    public Cinema Cinema { get; set; }
+}
+```
+
+Cinema.cs
+
+```csharp
+public class Cinema
+{
+    public int CinemaId { get; set; }
+    public string Name { get; set; }
+    public string Address { get; set; }
+    
+    public List<Hall> Halls { get; set; }
+}
+```
+
+2. Database Context
+
+CinemaContext.cs
+
+```csharp
+public class CinemaContext : DbContext
+{
+    public DbSet<Film> Films { get; set; }
+    public DbSet<Session> Sessions { get; set; }
+    public DbSet<Hall> Halls { get; set; }
+    public DbSet<Cinema> Cinemas { get; set; }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=CinemaDB;Trusted_Connection=true;");
+    }
+}
+```
+
+3. Service для работы с данными
+
+ExportService.cs
+
+```csharp
+public class ExportService
+{
+    private readonly CinemaContext _context;
+
+    public ExportService()
+    {
+        _context = new CinemaContext();
+    }
+
+    // 3.1 Экспорт в CSV для выбранного кинотеатра и даты
+    public void ExportToCsv(int cinemaId, DateTime date, string filePath)
+    {
+        var sessions = _context.Sessions
+            .Include(s => s.Film)
+            .Include(s => s.Hall)
+            .ThenInclude(h => h.Cinema)
+            .Where(s => s.Hall.CinemaId == cinemaId && s.StartDate.Date == date.Date)
+            .OrderBy(s => s.Film.Title)
+            .ThenBy(s => s.StartDate)
+            .Select(s => new
+            {
+                FilmTitle = s.Film.Title,
+                StartTime = s.StartDate.ToString("HH:mm"),
+                HallNumber = s.Hall.HallNumber,
+                Price = s.Price
+            })
+            .ToList();
+
+        using var writer = new StreamWriter(filePath);
+        using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+        
+        csv.WriteRecords(sessions);
+    }
+
+    // 3.2 Экспорт в XLSX для выбранной даты (разные кинотеатры на разных листах)
+    public void ExportToXlsxMultiSheet(DateTime date, string filePath)
+    {
+        var cinemas = _context.Cinemas.ToList();
+        
+        using var workbook = new XLWorkbook();
+
+        foreach (var cinema in cinemas)
+        {
+            var sessions = _context.Sessions
+                .Include(s => s.Film)
+                .Include(s => s.Hall)
+                .Where(s => s.Hall.CinemaId == cinema.CinemaId && s.StartDate.Date == date.Date)
+                .OrderBy(s => s.Film.Title)
+                .ThenBy(s => s.StartDate)
+                .Select(s => new
+                {
+                    FilmTitle = s.Film.Title,
+                    StartTime = s.StartDate.ToString("HH:mm"),
+                    HallNumber = s.Hall.HallNumber,
+                    Price = s.Price
+                })
+                .ToList();
+
+            var worksheet = workbook.Worksheets.Add(cinema.Name);
+            
+            // Заголовки
+            worksheet.Cell(1, 1).Value = "Название фильма";
+            worksheet.Cell(1, 2).Value = "Время начала";
+            worksheet.Cell(1, 3).Value = "Зал";
+            worksheet.Cell(1, 4).Value = "Цена";
+            
+            // Данные
+            for (int i = 0; i < sessions.Count; i++)
+            {
+                worksheet.Cell(i + 2, 1).Value = sessions[i].FilmTitle;
+                worksheet.Cell(i + 2, 2).Value = sessions[i].StartTime;
+                worksheet.Cell(i + 2, 3).Value = sessions[i].HallNumber;
+                worksheet.Cell(i + 2, 4).Value = sessions[i].Price;
+            }
+            
+            worksheet.Columns().AdjustToContents();
+        }
+        
+        workbook.SaveAs(filePath);
+    }
+
+    // 3.3 Экспорт по шаблону для выбранного фильма и даты
+    public void ExportFilmScheduleByTemplate(int filmId, DateTime date, string templatePath, string outputPath)
+    {
+        var film = _context.Films.FirstOrDefault(f => f.Filmid == filmId);
+        if (film == null) return;
+
+        using var workbook = new XLWorkbook(templatePath);
+        var worksheet = workbook.Worksheet(1);
+
+        var sessions = _context.Sessions
+            .Include(s => s.Hall)
+            .ThenInclude(h => h.Cinema)
+            .Where(s => s.Filmid == filmId && s.StartDate.Date == date.Date)
+            .OrderBy(s => s.Hall.Cinema.Name)
+            .ThenBy(s => s.StartDate)
+            .Select(s => new
+            {
+                CinemaName = s.Hall.Cinema.Name,
+                StartTime = s.StartDate.ToString("HH:mm"),
+                EndTime = s.StartDate.AddMinutes(film.Duration).ToString("HH:mm"),
+                HallNumber = s.Hall.HallNumber,
+                Price = s.Price
+            })
+            .ToList();
+
+        int row = 2; // Предполагаем, что первая строка - заголовки
+        foreach (var session in sessions)
+        {
+            worksheet.Cell(row, 1).Value = film.Title;
+            worksheet.Cell(row, 2).Value = date.ToString("dd.MM.yyyy");
+            worksheet.Cell(row, 3).Value = session.CinemaName;
+            worksheet.Cell(row, 4).Value = session.StartTime;
+            worksheet.Cell(row, 5).Value = session.EndTime;
+            worksheet.Cell(row, 6).Value = session.HallNumber;
+            worksheet.Cell(row, 7).Value = session.Price;
+            row++;
+        }
+
+        workbook.SaveAs(outputPath);
+    }
+
+    // 3.4 Универсальный экспорт в XLSX/HTML
+    public void ExportUniversal(string filePath, string format, DateTime date)
+    {
+        var sessions = _context.Sessions
+            .Include(s => s.Film)
+            .Include(s => s.Hall)
+            .ThenInclude(h => h.Cinema)
+            .Where(s => s.StartDate.Date == date.Date)
+            .OrderBy(s => s.Hall.Cinema.Name)
+            .ThenBy(s => s.StartDate)
+            .Select(s => new
+            {
+                FilmTitle = s.Film.Title,
+                CinemaName = s.Hall.Cinema.Name,
+                StartTime = s.StartDate.ToString("HH:mm"),
+                HallNumber = s.Hall.HallNumber,
+                Price = s.Price
+            })
+            .ToList();
+
+        if (format.ToLower() == "xlsx")
+        {
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Расписание");
+            
+            // Заголовки
+            worksheet.Cell(1, 1).Value = "Фильм";
+            worksheet.Cell(1, 2).Value = "Кинотеатр";
+            worksheet.Cell(1, 3).Value = "Время";
+            worksheet.Cell(1, 4).Value = "Зал";
+            worksheet.Cell(1, 5).Value = "Цена";
+            
+            // Данные
+            for (int i = 0; i < sessions.Count; i++)
+            {
+                worksheet.Cell(i + 2, 1).Value = sessions[i].FilmTitle;
+                worksheet.Cell(i + 2, 2).Value = sessions[i].CinemaName;
+                worksheet.Cell(i + 2, 3).Value = sessions[i].StartTime;
+                worksheet.Cell(i + 2, 4).Value = sessions[i].HallNumber;
+                worksheet.Cell(i + 2, 5).Value = sessions[i].Price;
+            }
+            
+            worksheet.Columns().AdjustToContents();
+            workbook.SaveAs(filePath);
+        }
+        else if (format.ToLower() == "html")
+        {
+            var html = new StringBuilder();
+            html.AppendLine("<!DOCTYPE html>");
+            html.AppendLine("<html>");
+            html.AppendLine("<head>");
+            html.AppendLine("<title>Расписание сеансов</title>");
+            html.AppendLine("<style>table { border-collapse: collapse; } td, th { border: 1px solid black; padding: 5px; }</style>");
+            html.AppendLine("</head>");
+            html.AppendLine("<body>");
+            html.AppendLine("<h1>Расписание сеансов на " + date.ToString("dd.MM.yyyy") + "</h1>");
+            html.AppendLine("<table>");
+            html.AppendLine("<tr><th>Фильм</th><th>Кинотеатр</th><th>Время</th><th>Зал</th><th>Цена</th></tr>");
+            
+            foreach (var session in sessions)
+            {
+                html.AppendLine($"<tr><td>{session.FilmTitle}</td><td>{session.CinemaName}</td><td>{session.StartTime}</td><td>{session.HallNumber}</td><td>{session.Price}</td></tr>");
+            }
+            
+            html.AppendLine("</table>");
+            html.AppendLine("</body>");
+            html.AppendLine("</html>");
+            
+            File.WriteAllText(filePath, html.ToString());
+        }
+    }
+}
+```
+
+4. MainWindow XAML
+
+MainWindow.xaml
+
+```xml
+<Window x:Class="CinemaExport.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Экспорт расписания кинотеатров" Height="600" Width="800">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Выбор даты -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="Дата:" Margin="5" VerticalAlignment="Center"/>
+        <DatePicker Grid.Row="0" Grid.Column="1" x:Name="dpDate" Margin="5" SelectedDate="{Binding SelectedDate}"/>
+
+        <!-- Задание 3.1: Экспорт в CSV -->
+        <GroupBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3" Header="3.1 Экспорт в CSV для кинотеатра" Margin="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Кинотеатр:" Margin="5" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" x:Name="cbCinemas" Margin="5" DisplayMemberPath="Name"/>
+                <Button Grid.Column="2" Content="Экспорт в CSV" Margin="5" Padding="10,5" Click="ExportCsv_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Задание 3.2: Экспорт в XLSX с несколькими листами -->
+        <GroupBox Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="3" Header="3.2 Экспорт в XLSX (разные кинотеатры на разных листах)" Margin="5">
+            <Button Content="Экспорт в XLSX" Margin="5" Padding="10,5" Click="ExportXlsxMultiSheet_Click"/>
+        </GroupBox>
+
+        <!-- Задание 3.3: Экспорт по шаблону -->
+        <GroupBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3" Header="3.3 Экспорт по шаблону для фильма" Margin="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Фильм:" Margin="5" VerticalAlignment="Center"/>
+                <ComboBox Grid.Column="1" x:Name="cbFilms" Margin="5" DisplayMemberPath="Title"/>
+                <Button Grid.Column="2" Content="Выбрать шаблон" Margin="5" Padding="10,5" Click="SelectTemplate_Click"/>
+                <Button Grid.Column="3" Content="Экспорт по шаблону" Margin="5" Padding="10,5" Click="ExportTemplate_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Задание 3.4: Универсальный экспорт -->
+        <GroupBox Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Header="3.4 Универсальный экспорт" Margin="5">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="Экспорт в XLSX" Margin="5" Padding="10,5" Click="ExportUniversalXlsx_Click"/>
+                <Button Grid.Column="1" Content="Экспорт в HTML" Margin="5" Padding="10,5" Click="ExportUniversalHtml_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Лог действий -->
+        <GroupBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Header="Лог действий" Margin="5">
+            <TextBox x:Name="txtLog" IsReadOnly="True" VerticalScrollBarVisibility="Auto" Height="150"/>
+        </GroupBox>
+    </Grid>
+</Window>
+```
+
+5. MainWindow Code-behind
+
+MainWindow.xaml.cs
+
+```csharp
+public partial class MainWindow : Window
+{
+    private readonly ExportService _exportService;
+    private string _selectedTemplatePath;
+
+    public MainWindow()
+    {
+        InitializeComponent();
+        _exportService = new ExportService();
+        dpDate.SelectedDate = DateTime.Today;
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        using var context = new CinemaContext();
+        cbCinemas.ItemsSource = context.Cinemas.ToList();
+        cbFilms.ItemsSource = context.Films.ToList();
+    }
+
+    private void Log(string message)
+    {
+        txtLog.AppendText($"{DateTime.Now:HH:mm:ss} - {message}\n");
+        txtLog.ScrollToEnd();
+    }
+
+    // 3.1 Экспорт в CSV
+    private void ExportCsv_Click(object sender, RoutedEventArgs e)
+    {
+        if (cbCinemas.SelectedItem == null)
+        {
+            MessageBox.Show("Выберите кинотеатр");
+            return;
+        }
+
+        var saveDialog = new SaveFileDialog
+        {
+            Filter = "CSV files (*.csv)|*.csv",
+            DefaultExt = ".csv"
+        };
+
+        if (saveDialog.ShowDialog() == true)
+        {
+            var cinema = (Cinema)cbCinemas.SelectedItem;
+            _exportService.ExportToCsv(cinema.CinemaId, dpDate.SelectedDate.Value, saveDialog.FileName);
+            Log($"Экспорт в CSV для кинотеатра '{cinema.Name}' выполнен: {saveDialog.FileName}");
+        }
+    }
+
+    // 3.2 Экспорт в XLSX с несколькими листами
+    private void ExportXlsxMultiSheet_Click(object sender, RoutedEventArgs e)
+    {
+        var saveDialog = new SaveFileDialog
+        {
+            Filter = "Excel files (*.xlsx)|*.xlsx",
+            DefaultExt = ".xlsx"
+        };
+
+        if (saveDialog.ShowDialog() == true)
+        {
+            _exportService.ExportToXlsxMultiSheet(dpDate.SelectedDate.Value, saveDialog.FileName);
+            Log($"Экспорт в XLSX с несколькими листами выполнен: {saveDialog.FileName}");
+        }
+    }
+
+    // 3.3 Выбор шаблона
+    private void SelectTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        var openDialog = new OpenFileDialog
+        {
+            Filter = "Excel files (*.xlsx)|*.xlsx",
+            DefaultExt = ".xlsx"
+        };
+
+        if (openDialog.ShowDialog() == true)
+        {
+            _selectedTemplatePath = openDialog.FileName;
+            Log($"Выбран шаблон: {_selectedTemplatePath}");
+        }
+    }
+
+    // 3.3 Экспорт по шаблону
+    private void ExportTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (cbFilms.SelectedItem == null || string.IsNullOrEmpty(_selectedTemplatePath))
+        {
+            MessageBox.Show("Выберите фильм и шаблон");
+            return;
+        }
+
+        var saveDialog = new SaveFileDialog
+        {
+            Filter = "Excel files (*.xlsx)|*.xlsx",
+            DefaultExt = ".xlsx"
+        };
+
+        if (saveDialog.ShowDialog() == true)
+        {
+            var film = (Film)cbFilms.SelectedItem;
+            _exportService.ExportFilmScheduleByTemplate(film.Filmid, dpDate.SelectedDate.Value, 
+                _selectedTemplatePath, saveDialog.FileName);
+            Log($"Экспорт по шаблону для фильма '{film.Title}' выполнен: {saveDialog.FileName}");
+        }
+    }
+
+    // 3.4 Универсальный экспорт в XLSX
+    private void ExportUniversalXlsx_Click(object sender, RoutedEventArgs e)
+    {
+        var saveDialog = new SaveFileDialog
+        {
+            Filter = "Excel files (*.xlsx)|*.xlsx",
+            DefaultExt = ".xlsx"
+        };
+
+        if (saveDialog.ShowDialog() == true)
+        {
+            _exportService.ExportUniversal(saveDialog.FileName, "xlsx", dpDate.SelectedDate.Value);
+            Log($"Универсальный экспорт в XLSX выполнен: {saveDialog.FileName}");
+        }
+    }
+
+    // 3.4 Универсальный экспорт в HTML
+    private void ExportUniversalHtml_Click(object sender, RoutedEventArgs e)
+    {
+        var saveDialog = new SaveFileDialog
+        {
+            Filter = "HTML files (*.html)|*.html",
+            DefaultExt = ".html"
+        };
+
+        if (saveDialog.ShowDialog() == true)
+        {
+            _exportService.ExportUniversal(saveDialog.FileName, "html", dpDate.SelectedDate.Value);
+            Log($"Универсальный экспорт в HTML выполнен: {saveDialog.FileName}");
+        }
+    }
+}
+```
+
+6. Ответы на контрольные вопросы
+
+6.1 Для работы с Word в .NET требуется пространство имен Microsoft.Office.Interop.Word
+
+6.2 Библиотеки для сохранения в формате DOCX:
+
+· Microsoft.Office.Interop.Word (COM interop)
+· DocumentFormat.OpenXml (Open XML SDK)
+· DocX (сторонняя библиотека)
+
+6.3 Экспорт данных в формате TXT выполняется с помощью классов StreamWriter или File.WriteAllText:
+
+```csharp
+// Простой экспорт
+File.WriteAllText("file.txt", data);
+
+// Построчная запись
+using var writer = new StreamWriter("file.txt");
+foreach (var line in dataLines)
+{
+    writer.WriteLine(line);
+}
+```
+
+7. Установка NuGet пакетов
+
+```xml
+<PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.0" />
+<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="7.0.0" />
+<PackageReference Include="ClosedXML" Version="0.102.1" />
+<PackageReference Include="CsvHelper" Version="30.0.1" />
+```
+
+Это WPF приложение полностью реализует все требования лабораторной работы №25 и позволяет экспортировать данные из БД кинотеатров в различные форматы файлов.
