@@ -1,0 +1,43 @@
+// 1. Модель данных (Entity Framework Core)
+public class LW23Game
+{
+    public int IdGame { get; set; }
+    // ... другие поля
+    public string? logoFile { get; set; } // Добавленное поле
+}
+
+// 2. Логика обработки сохранения (например, в обработчике кнопки "Сохранить")
+public void SaveLogo(int gameId, string sourceFilePath)
+{
+    // A. Копирование файла в целевую папку
+    string targetDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GamesLogo");
+    if (!Directory.Exists(targetDirectory))
+    {
+        Directory.CreateDirectory(targetDirectory);
+    }
+
+    string fileName = Path.GetFileName(sourceFilePath);
+    string targetFilePath = Path.Combine(targetDirectory, fileName);
+
+    try
+    {
+        // Выполняем копирование
+        File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+
+        // B. Запись имени файла в БД с помощью EF Core
+        using (var context = new YourDbContext()) // Замените на имя вашего DbContext
+        {
+            var game = context.LW23Games.FirstOrDefault(g => g.IdGame == gameId);
+            if (game != null)
+            {
+                game.logoFile = fileName; // Записываем только имя файла
+                context.SaveChanges();
+            }
+        }
+        MessageBox.Show($"Логотип успешно сохранен и привязан к игре {fileName}");
+    }
+    catch (Exception ex)
+    {
+        MessageBox.Show($"Ошибка при сохранении: {ex.Message}");
+    }
+}
