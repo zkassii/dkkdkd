@@ -224,3 +224,196 @@ namespace LabWork23
 }
 
 
+
+
+
+
+
+
+
+
+Я понял. Вы хотите, чтобы я представил решение для WPF, где есть выпадающий список для выбора сущности (фильма/игры) и отдельная кнопка для выбора файла.
+Поскольку Лабораторная работа №23 явно касается Игр (LW23Games), я буду использовать модель Игры, но структура интерфейса будет именно такой, как вы описали (ComboBox для выбора объекта + Кнопка для выбора файла).
+Вот обновленная и проверенная реализация для WPF.
+1. XAML-разметка (MainWindow.xaml)
+В этой разметке ComboBox используется для выбора Игры (аналог вашего "фильма"), а Button с текстом "Обзор..." — для выбора файла логотипа.
+<Window x:Class="LabWork23.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Задание 3.1: Привязка логотипа" Height="250" Width="500"
+        Loaded="Window_Loaded">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Label Content="Выберите Игру:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Name="GameComboBox" 
+                  Grid.Row="0" Grid.Column="1" 
+                  DisplayMemberPath="name"       
+                  SelectedValuePath="IdGame" 
+                  Margin="5" />
+
+        <Label Content="Файл логотипа:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
+            <TextBox Name="LogoPathTextBox" Width="250" IsReadOnly="True" Margin="0,0,10,0" 
+                     VerticalAlignment="Center" Text="Путь к файлу..."/>
+            <Button Content="Обзор..." Click="BrowseButton_Click" Padding="10,0"/>
+        </StackPanel>
+
+        <Button Content="Сохранить" 
+                Grid.Row="3" Grid.ColumnSpan="2" 
+                HorizontalAlignment="Left" 
+                Click="SaveButton_Click" 
+                Margin="0,20,0,0" 
+                Padding="20,8"/>
+    </Grid>
+</Window>
+
+2. C#-логика (MainWindow.xaml.cs)
+Код-за кулисами реализует привязку данных к ComboBox и обработку нажатия кнопок.
+Ключевые моменты:
+ * Window_Loaded: Заполняет GameComboBox данными из БД.
+ * BrowseButton_Click: Использует OpenFileDialog для выбора файла и записывает путь в LogoPathTextBox.
+ * SaveButton_Click: Выполняет копирование файла в папку GamesLogo и обновляет БД.
+<!-- end list -->
+using System;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using Microsoft.Win32;
+// Вам нужно определить свои пространства имен:
+// using YourProject.Data; // Пространство имен для YourDbContext
+// using YourProject.Models; // Пространство имен для LW23Game
+
+namespace LabWork23 
+{
+    // Замените YourDbContext и LW23Game на ваши реальные классы
+    public class LW23Game
+    {
+        public int IdGame { get; set; }
+        public string name { get; set; }
+        public string? logoFile { get; set; } 
+    }
+    
+    // ПРЕДУПРЕЖДЕНИЕ: В реальном проекте замените на ваш DbContext!
+    // Этот класс-заглушка нужен только для компиляции примера.
+    public class YourDbContext : IDisposable 
+    {
+        public System.Collections.Generic.List<LW23Game> LW23Games { get; set; } = new System.Collections.Generic.List<LW23Game>
+        {
+            new LW23Game { IdGame = 1, name = "Doom Eternal" },
+            new LW23Game { IdGame = 2, name = "The Witcher 3" },
+            new LW23Game { IdGame = 3, name = "Cyberpunk 2077" }
+        };
+
+        public LW23Game Find(int id) => LW23Games.FirstOrDefault(g => g.IdGame == id);
+        public System.Collections.Generic.List<LW23Game> ToList() => LW23Games;
+        public int SaveChanges() { /* Логика сохранения в БД */ return 1; }
+        public void Dispose() { /* Логика освобождения ресурсов */ }
+    }
+
+
+    public partial class MainWindow : Window
+    {
+        private readonly YourDbContext _context = new YourDbContext(); 
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            LoadGames();
+        }
+
+        private void LoadGames()
+        {
+            try
+            {
+                // Загрузка всех игр и привязка к ComboBox
+                GameComboBox.ItemsSource = _context.LW23Games.ToList();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка загрузки игр: {ex.Message}", "Ошибка БД", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        // Обработчик кнопки "Обзор..." (Выбор файла)
+        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Filter = "Файлы изображений|*.jpg;*.jpeg;*.png;*.gif",
+                Title = "Выберите файл логотипа для игры"
+            };
+
+            if (openFileDialog.ShowDialog() == true) 
+            {
+                LogoPathTextBox.Text = openFileDialog.FileName;
+            }
+        }
+
+        // Обработчик кнопки "Сохранить" (Логика копирования и обновления БД)
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Проверка выбора и пути
+            if (GameComboBox.SelectedValue == null)
+            {
+                MessageBox.Show("Пожалуйста, выберите игру.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            string sourceFilePath = LogoPathTextBox.Text;
+            if (string.IsNullOrWhiteSpace(sourceFilePath) || !File.Exists(sourceFilePath))
+            {
+                MessageBox.Show("Пожалуйста, выберите существующий файл логотипа.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            int selectedGameId = (int)GameComboBox.SelectedValue;
+            string fileName = Path.GetFileName(sourceFilePath);
+
+            // 2. Эмуляция загрузки: определение и создание целевой папки
+            string targetDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GamesLogo");
+            string targetFilePath = Path.Combine(targetDirectory, fileName);
+
+            try
+            {
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                // Копирование файла
+                File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+
+                // 3. Обновление записи в БД
+                var gameToUpdate = _context.LW23Games.Find(selectedGameId);
+
+                if (gameToUpdate != null)
+                {
+                    gameToUpdate.logoFile = fileName; 
+                    _context.SaveChanges();
+                    
+                    MessageBox.Show($"Логотип '{fileName}' успешно загружен и привязан к игре.", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Произошла ошибка при сохранении: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+}
+
+
