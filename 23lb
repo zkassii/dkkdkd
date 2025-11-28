@@ -1,3 +1,193 @@
+Я предоставлю вам полный код для выполнения задания 3.1 в приложении WPF, включая необходимую XAML-разметку и логику на C#. Мы будем использовать комбобокс для выбора игры и кнопку для выполнения операции.
+1. Подготовка классов C# (Модель и Контекст)
+Прежде чем приступать к WPF-коду, убедитесь, что у вас есть классы сущностей и контекста EF Core.
+Класс сущности LW23Game
+Убедитесь, что ваше свойство для имени (которое маппируется на столбец name в БД) и поле logoFile имеют правильный регистр и типы:
+// Файл: Models/LW23Game.cs
+public class LW23Game
+{
+    // IdGame - соответствует первичному ключу
+    public int IdGame { get; set; } 
+    
+    // Name - соответствует столбцу name
+    public string Name { get; set; } 
+    
+    // logoFile - соответствует столбцу logoFile (nvarchar(120))
+    public string? logoFile { get; set; } 
+    
+    // ... другие свойства (Description, Price, IdCategory и т.д.)
+}
+
+Класс контекста YourDbContext
+Убедитесь, что ваш контекст правильно настроен:
+// Файл: Data/YourDbContext.cs
+public class YourDbContext : DbContext
+{
+    public DbSet<LW23Game> LW23Games { get; set; }
+    
+    // ... (Настройка OnConfiguring или конструктора) ...
+}
+
+2. XAML-разметка (MainWindow.xaml)
+Эта разметка содержит ComboBox для выбора игры, TextBox для отображения пути к файлу и две кнопки: "Обзор..." (для выбора файла) и "Сохранить" (для выполнения задания 3.1.3).
+<Window x:Class="LabWork23.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Лабораторная №23. Задание 3.1" Height="250" Width="550">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Label Content="1. Выберите Игру:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Name="GameComboBox" 
+                  Grid.Row="0" Grid.Column="1" 
+                  DisplayMemberPath="Name"       
+                  SelectedValuePath="IdGame" 
+                  Margin="5"
+                  DropDownOpened="GameComboBox_DropDownOpened" /> 
+        
+        <Label Content="2. Файл логотипа:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
+            <TextBox Name="LogoPathTextBox" Width="300" IsReadOnly="True" Margin="0,0,10,0" 
+                     VerticalAlignment="Center" Text="Нажмите 'Обзор...'"/>
+            <Button Content="Обзор..." Click="BrowseButton_Click" Padding="10,0"/>
+        </StackPanel>
+
+        <Button Content="3. Сохранить" 
+                Grid.Row="3" Grid.ColumnSpan="2" 
+                HorizontalAlignment="Left" 
+                Click="SaveButton_Click" 
+                Margin="0,20,0,0" 
+                Padding="20,8"/>
+    </Grid>
+</Window>
+
+3. C#-логика (MainWindow.xaml.cs)
+Здесь реализуется вся логика задания 3.1.2 и 3.1.3: отложенная загрузка списка, выбор файла и основная логика сохранения (копирование файла + обновление БД).
+using System;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using Microsoft.Win32;
+// Добавьте свои using для EF Core и моделей
+using Microsoft.EntityFrameworkCore; 
+// using YourProject.Data; 
+// using YourProject.Models; 
+
+namespace LabWork23 
+{
+    // Используйте ваш реальный DbContext
+    public partial class MainWindow : Window
+    {
+        private readonly YourDbContext _context = new YourDbContext(); 
+        // Флаг для отложенной загрузки данных
+        private bool _isGameListLoaded = false; 
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        // Отложенная загрузка списка игр при первом открытии ComboBox
+        private void GameComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            if (!_isGameListLoaded)
+            {
+                try
+                {
+                    // Загрузка всех игр из БД
+                    GameComboBox.ItemsSource = _context.LW23Games.ToList();
+                    _isGameListLoaded = true; 
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка загрузки данных из БД: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        // Обработчик кнопки "Обзор..." (для выбора файла)
+        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Filter = "Файлы изображений|*.jpg;*.jpeg;*.png;*.gif",
+                Title = "Выберите файл логотипа для игры"
+            };
+
+            if (openFileDialog.ShowDialog() == true) 
+            {
+                LogoPathTextBox.Text = openFileDialog.FileName;
+            }
+        }
+
+        // Обработчик кнопки "Сохранить" (Главная логика задания 3.1.3)
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Проверка ввода
+            if (GameComboBox.SelectedValue == null)
+            {
+                MessageBox.Show("Пожалуйста, выберите игру.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            string sourceFilePath = LogoPathTextBox.Text;
+            if (string.IsNullOrWhiteSpace(sourceFilePath) || !File.Exists(sourceFilePath))
+            {
+                MessageBox.Show("Пожалуйста, выберите существующий файл логотипа.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            int selectedGameId = (int)GameComboBox.SelectedValue;
+            string fileName = Path.GetFileName(sourceFilePath);
+
+            // 2. Эмуляция загрузки: определение и создание целевой папки
+            string targetDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GamesLogo");
+            string targetFilePath = Path.Combine(targetDirectory, fileName);
+
+            try
+            {
+                // Создание папки "GamesLogo", если она не существует
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                // Копирование файла (эмуляция загрузки на сервер)
+                File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+
+                // 3. Обновление записи в БД
+                var gameToUpdate = _context.LW23Games.Find(selectedGameId);
+
+                if (gameToUpdate != null)
+                {
+                    // Запись имени файла в поле logoFile
+                    gameToUpdate.logoFile = fileName; 
+                    _context.SaveChanges();
+                    
+                    MessageBox.Show($"Логотип '{fileName}' успешно загружен в папку и привязан к игре.", 
+                                    "Успех", 
+                                    MessageBoxButton.OK, 
+                                    MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Если возникла ошибка, например, проблемы с правами доступа к папке или БД
+                MessageBox.Show($"Произошла ошибка при сохранении: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+}
+
 // 1. Модель данных (Entity Framework Core)
 public class LW23Game
 {
@@ -410,6 +600,208 @@ namespace LabWork23
             }
             catch (Exception ex)
             {
+                MessageBox.Show($"Произошла ошибка при сохранении: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+Я предоставлю вам полный код для выполнения задания 3.1 в приложении WPF, включая необходимую XAML-разметку и логику на C#. Мы будем использовать комбобокс для выбора игры и кнопку для выполнения операции.
+1. Подготовка классов C# (Модель и Контекст)
+Прежде чем приступать к WPF-коду, убедитесь, что у вас есть классы сущностей и контекста EF Core.
+Класс сущности LW23Game
+Убедитесь, что ваше свойство для имени (которое маппируется на столбец name в БД) и поле logoFile имеют правильный регистр и типы:
+// Файл: Models/LW23Game.cs
+public class LW23Game
+{
+    // IdGame - соответствует первичному ключу
+    public int IdGame { get; set; } 
+    
+    // Name - соответствует столбцу name
+    public string Name { get; set; } 
+    
+    // logoFile - соответствует столбцу logoFile (nvarchar(120))
+    public string? logoFile { get; set; } 
+    
+    // ... другие свойства (Description, Price, IdCategory и т.д.)
+}
+
+Класс контекста YourDbContext
+Убедитесь, что ваш контекст правильно настроен:
+// Файл: Data/YourDbContext.cs
+public class YourDbContext : DbContext
+{
+    public DbSet<LW23Game> LW23Games { get; set; }
+    
+    // ... (Настройка OnConfiguring или конструктора) ...
+}
+
+2. XAML-разметка (MainWindow.xaml)
+Эта разметка содержит ComboBox для выбора игры, TextBox для отображения пути к файлу и две кнопки: "Обзор..." (для выбора файла) и "Сохранить" (для выполнения задания 3.1.3).
+<Window x:Class="LabWork23.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Лабораторная №23. Задание 3.1" Height="250" Width="550">
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Label Content="1. Выберите Игру:" Grid.Row="0" Grid.Column="0" VerticalAlignment="Center"/>
+        <ComboBox Name="GameComboBox" 
+                  Grid.Row="0" Grid.Column="1" 
+                  DisplayMemberPath="Name"       
+                  SelectedValuePath="IdGame" 
+                  Margin="5"
+                  DropDownOpened="GameComboBox_DropDownOpened" /> 
+        
+        <Label Content="2. Файл логотипа:" Grid.Row="1" Grid.Column="0" VerticalAlignment="Center"/>
+        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="5">
+            <TextBox Name="LogoPathTextBox" Width="300" IsReadOnly="True" Margin="0,0,10,0" 
+                     VerticalAlignment="Center" Text="Нажмите 'Обзор...'"/>
+            <Button Content="Обзор..." Click="BrowseButton_Click" Padding="10,0"/>
+        </StackPanel>
+
+        <Button Content="3. Сохранить" 
+                Grid.Row="3" Grid.ColumnSpan="2" 
+                HorizontalAlignment="Left" 
+                Click="SaveButton_Click" 
+                Margin="0,20,0,0" 
+                Padding="20,8"/>
+    </Grid>
+</Window>
+
+3. C#-логика (MainWindow.xaml.cs)
+Здесь реализуется вся логика задания 3.1.2 и 3.1.3: отложенная загрузка списка, выбор файла и основная логика сохранения (копирование файла + обновление БД).
+using System;
+using System.IO;
+using System.Linq;
+using System.Windows;
+using Microsoft.Win32;
+// Добавьте свои using для EF Core и моделей
+using Microsoft.EntityFrameworkCore; 
+// using YourProject.Data; 
+// using YourProject.Models; 
+
+namespace LabWork23 
+{
+    // Используйте ваш реальный DbContext
+    public partial class MainWindow : Window
+    {
+        private readonly YourDbContext _context = new YourDbContext(); 
+        // Флаг для отложенной загрузки данных
+        private bool _isGameListLoaded = false; 
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        // Отложенная загрузка списка игр при первом открытии ComboBox
+        private void GameComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            if (!_isGameListLoaded)
+            {
+                try
+                {
+                    // Загрузка всех игр из БД
+                    GameComboBox.ItemsSource = _context.LW23Games.ToList();
+                    _isGameListLoaded = true; 
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка загрузки данных из БД: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        // Обработчик кнопки "Обзор..." (для выбора файла)
+        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog
+            {
+                Filter = "Файлы изображений|*.jpg;*.jpeg;*.png;*.gif",
+                Title = "Выберите файл логотипа для игры"
+            };
+
+            if (openFileDialog.ShowDialog() == true) 
+            {
+                LogoPathTextBox.Text = openFileDialog.FileName;
+            }
+        }
+
+        // Обработчик кнопки "Сохранить" (Главная логика задания 3.1.3)
+        private void SaveButton_Click(object sender, RoutedEventArgs e)
+        {
+            // 1. Проверка ввода
+            if (GameComboBox.SelectedValue == null)
+            {
+                MessageBox.Show("Пожалуйста, выберите игру.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            string sourceFilePath = LogoPathTextBox.Text;
+            if (string.IsNullOrWhiteSpace(sourceFilePath) || !File.Exists(sourceFilePath))
+            {
+                MessageBox.Show("Пожалуйста, выберите существующий файл логотипа.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            int selectedGameId = (int)GameComboBox.SelectedValue;
+            string fileName = Path.GetFileName(sourceFilePath);
+
+            // 2. Эмуляция загрузки: определение и создание целевой папки
+            string targetDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "GamesLogo");
+            string targetFilePath = Path.Combine(targetDirectory, fileName);
+
+            try
+            {
+                // Создание папки "GamesLogo", если она не существует
+                if (!Directory.Exists(targetDirectory))
+                {
+                    Directory.CreateDirectory(targetDirectory);
+                }
+
+                // Копирование файла (эмуляция загрузки на сервер)
+                File.Copy(sourceFilePath, targetFilePath, overwrite: true);
+
+                // 3. Обновление записи в БД
+                var gameToUpdate = _context.LW23Games.Find(selectedGameId);
+
+                if (gameToUpdate != null)
+                {
+                    // Запись имени файла в поле logoFile
+                    gameToUpdate.logoFile = fileName; 
+                    _context.SaveChanges();
+                    
+                    MessageBox.Show($"Логотип '{fileName}' успешно загружен в папку и привязан к игре.", 
+                                    "Успех", 
+                                    MessageBoxButton.OK, 
+                                    MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Если возникла ошибка, например, проблемы с правами доступа к папке или БД
                 MessageBox.Show($"Произошла ошибка при сохранении: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
