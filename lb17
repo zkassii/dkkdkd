@@ -36,3 +36,84 @@
         }
     }
 </ul>
+
+
+
+
+
+
+
+
+
+<header>
+    <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <div class="container">
+            <a class="navbar-brand" asp-page="/Index">Кинотеатр</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                <!-- Левое меню -->
+                <ul class="navbar-nav flex-grow-1">
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" asp-page="/Index">Главная</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-dark" asp-page="/Films/Index">Фильмы</a>
+                    </li>
+                    
+                    @{
+                        // Получаем роль из сессии
+                        var userRole = Context.Session.GetString("Role");
+                        var userName = Context.Session.GetString("UserName");
+                        var userLogin = Context.Session.GetString("Login");
+                    }
+                    
+                    @if (userRole == "Администратор" || userRole == "Билетер")
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link text-dark" asp-page="/Tickets/Index">Билеты</a>
+                        </li>
+                    }
+                </ul>
+                
+                <!-- Правое меню - Войти/Выйти -->
+                <ul class="navbar-nav">
+                    @if (Context.Session.GetString("Role") is null)
+                    {
+                        <!-- Нет роли в сессии - показываем "Войти" -->
+                        <li class="nav-item">
+                            <a class="btn btn-primary" asp-page="/Login">Войти</a>
+                        </li>
+                    }
+                    else
+                    {
+                        <!-- Есть роль в сессии - показываем информацию и "Выйти" -->
+                        <li class="nav-item">
+                            <div class="d-flex align-items-center">
+                                <!-- Отображаем логин и роль -->
+                                <span class="navbar-text me-3">
+                                    @if (!string.IsNullOrEmpty(userName))
+                                    {
+                                        <text>@userName (@userRole)</text>
+                                    }
+                                    else if (!string.IsNullOrEmpty(userLogin))
+                                    {
+                                        <text>@userLogin (@userRole)</text>
+                                    }
+                                    else
+                                    {
+                                        <text>@userRole</text>
+                                    }
+                                </span>
+                                
+                                <!-- Кнопка "Выйти" -->
+                                <a class="btn btn-outline-danger" asp-page="/Login" asp-page-handler="logout">Выйти</a>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </nav>
+</header>
