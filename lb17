@@ -1,0 +1,38 @@
+<!-- ПРАВАЯ ЧАСТЬ МЕНЮ - ИНФОРМАЦИЯ О ПОЛЬЗОВАТЕЛЕ -->
+<ul class="navbar-nav">
+    @if (isAuthenticated)
+    {
+        <!-- Отображаем имя и роль пользователя -->
+        <li class="nav-item">
+            <span class="navbar-text me-3">
+                @userName (@userRole)
+            </span>
+        </li>
+        
+        <!-- Кнопка "Выйти" -->
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-page="/Login" asp-page-handler="logout">
+                Выйти
+            </a>
+        </li>
+    }
+    else
+    {
+        <!-- Кнопка "Войти" -->
+        <li class="nav-item">
+            <a class="nav-link text-dark" asp-page="/Login">
+                Войти
+            </a>
+        </li>
+        
+        <!-- Если пользователь - гость -->
+        @if (userRole == "Гость")
+        {
+            <li class="nav-item">
+                <span class="navbar-text me-2 text-muted">
+                    Гость
+                </span>
+            </li>
+        }
+    }
+</ul>
