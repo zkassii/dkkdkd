@@ -1,0 +1,79 @@
+Вы хотите, чтобы отображение данных в ListView имитировало таблицу: сначала заголовок с названиями столбцов, а затем под ним построчно выводились соответствующие данные.
+В MAUI это удобно сделать с помощью Grid внутри DataTemplate и отдельного элемента Grid или HorizontalStackLayout для заголовков.
+Вот готовая реализация для задания 3.2 с заголовками столбцов.
+3.2 Просмотр данных с заголовками столбцов
+1. 🖥 Разметка XAML (MoviesPage.xaml)
+Мы используем VerticalStackLayout для страницы. В верхней части мы разместим Grid с заголовками, а затем ListView будет использовать Grid с тем же расположением колонок для вывода данных.
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MovieApp.MoviesPage"
+             Title="Список фильмов">
+
+    <VerticalStackLayout Padding="10">
+        
+        <Grid ColumnDefinitions="50, *, 80, 70, 150" Padding="5" BackgroundColor="#EFEFEF">
+            <Label Grid.Column="0" Text="ID" FontAttributes="Bold" HorizontalOptions="Start"/>
+            <Label Grid.Column="1" Text="Название" FontAttributes="Bold" HorizontalOptions="Start"/>
+            <Label Grid.Column="2" Text="Длит-сть" FontAttributes="Bold" HorizontalOptions="Center"/>
+            <Label Grid.Column="3" Text="Год" FontAttributes="Bold" HorizontalOptions="Center"/>
+            <Label Grid.Column="4" Text="Описание" FontAttributes="Bold" HorizontalOptions="Start"/>
+        </Grid>
+
+        <BoxView HeightRequest="1" Color="#CCCCCC"/>
+
+        <ListView ItemsSource="{Binding DisplayedMovies}"
+                  SelectionMode="None"
+                  HasUnevenRows="True">
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <ViewCell>
+                        <Grid ColumnDefinitions="50, *, 80, 70, 150" Padding="5">
+                            
+                            <Label Grid.Column="0" Text="{Binding Id}" 
+                                   HorizontalOptions="Start"
+                                   VerticalOptions="Center"/>
+                            
+                            <Label Grid.Column="1" Text="{Binding Title}" 
+                                   FontAttributes="Bold" 
+                                   VerticalOptions="Center"
+                                   LineBreakMode="TailTruncation"/>
+                            
+                            <Label Grid.Column="2" Text="{Binding Duration, StringFormat='{0} мин'}" 
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"/>
+                            
+                            <Label Grid.Column="3" Text="{Binding ReleaseYear}" 
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"/>
+                            
+                            <Label Grid.Column="4" Text="{Binding Description}" 
+                                   VerticalOptions="Center"
+                                   LineBreakMode="TailTruncation"
+                                   MaxLines="1"
+                                   TextColor="Gray"/>
+                        </Grid>
+                    </ViewCell>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+        
+    </VerticalStackLayout>
+</ContentPage>
+
+2. 🔌 Код C# (MoviesPage.xaml.cs)
+Код остается прежним:
+// Файл: MoviesPage.xaml.cs
+using Microsoft.Maui.Controls;
+using MovieApp.ViewModels; // Замените на фактическое пространство имен
+
+public partial class MoviesPage : ContentPage
+{
+    public MoviesPage()
+    {
+        InitializeComponent();
+        
+        // Установка BindingContext
+        this.BindingContext = new MoviesViewModel();
+    }
+}
+
