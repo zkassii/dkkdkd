@@ -1,0 +1,78 @@
+Сделать это в одном Grid возможно, но это не является стандартной и эффективной практикой в MAUI (и в XAML-фреймворках в целом) для отображения списков с переменным количеством элементов.
+Почему ListView лучше:
+ * Виртуализация: ListView и CollectionView повторно используют элементы интерфейса, что критически важно для производительности и экономии памяти, если в списке сотни или тысячи элементов. Grid этого не делает.
+ * Гибкость: ListView легко адаптируется к любому количеству элементов.
+Однако, поскольку по заданию 3.5 вы выводите фиксированное количество — 3 элемента на странице, мы можем использовать один Grid, жестко задав в нем 4 строки: 1 для заголовка и 3 для данных.
+Готовая реализация (Одним Grid)
+Для этого нам потребуется небольшая модификация в ViewModel (чтобы получить доступ к отдельным элементам по индексу) и XAML-разметка с 4 строками.
+1. ⚙️ Обновление ViewModel (MoviesViewModel.cs)
+Чтобы иметь возможность привязывать данные к конкретной строке в Grid, нам нужно создать свойства для первого, второго и третьего фильма на странице.
+// Файл: ViewModels/MoviesViewModel.cs (Добавьте эти свойства)
+
+// Свойства, привязываемые к строкам Grid
+public Movie Movie1 => DisplayedMovies != null && DisplayedMovies.Count > 0 ? DisplayedMovies[0] : null;
+public Movie Movie2 => DisplayedMovies != null && DisplayedMovies.Count > 1 ? DisplayedMovies[1] : null;
+public Movie Movie3 => DisplayedMovies != null && DisplayedMovies.Count > 2 ? DisplayedMovies[2] : null;
+
+// В методе, который обновляет DisplayedMovies, добавьте уведомление об изменениях:
+private void ApplyFiltersAndSort()
+{
+    // ... (весь ваш код сортировки, фильтрации и пагинации) ...
+    
+    DisplayedMovies = new ObservableCollection<Movie>(pagedMovies);
+    
+    // Обязательно вызываем уведомление об изменении для новых свойств
+    OnPropertyChanged(nameof(Movie1));
+    OnPropertyChanged(nameof(Movie2));
+    OnPropertyChanged(nameof(Movie3));
+}
+
+2. 🖥 Разметка XAML (MoviesPage.xaml)
+Создаем один Grid с 4 строками (RowDefinition) и 5 колонками (ColumnDefinition).
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="MovieApp.MoviesPage"
+             Title="Список фильмов">
+
+    <Grid RowDefinitions="Auto, Auto, Auto, Auto, *"
+          ColumnDefinitions="50, *, 80, 70, 150" 
+          Padding="10"
+          RowSpacing="1">
+        
+        <Grid Grid.Row="0" Grid.ColumnSpan="5" BackgroundColor="#EFEFEF">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="150"/>
+            </Grid.ColumnDefinitions>
+            <Label Grid.Column="0" Text="ID" FontAttributes="Bold"/>
+            <Label Grid.Column="1" Text="Название" FontAttributes="Bold"/>
+            <Label Grid.Column="2" Text="Длит-сть" FontAttributes="Bold" HorizontalOptions="Center"/>
+            <Label Grid.Column="3" Text="Год" FontAttributes="Bold" HorizontalOptions="Center"/>
+            <Label Grid.Column="4" Text="Описание" FontAttributes="Bold"/>
+        </Grid>
+        
+        <Label Grid.Row="1" Grid.Column="0" Text="{Binding Movie1.Id}" VerticalOptions="Center"/>
+        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Movie1.Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center"/>
+        <Label Grid.Row="1" Grid.Column="2" Text="{Binding Movie1.Duration, StringFormat='{0} мин'}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="1" Grid.Column="3" Text="{Binding Movie1.ReleaseYear}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="1" Grid.Column="4" Text="{Binding Movie1.Description}" MaxLines="1" LineBreakMode="TailTruncation" TextColor="Gray" VerticalOptions="Center"/>
+
+        <Label Grid.Row="2" Grid.Column="0" Text="{Binding Movie2.Id}" VerticalOptions="Center"/>
+        <Label Grid.Row="2" Grid.Column="1" Text="{Binding Movie2.Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center"/>
+        <Label Grid.Row="2" Grid.Column="2" Text="{Binding Movie2.Duration, StringFormat='{0} мин'}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="2" Grid.Column="3" Text="{Binding Movie2.ReleaseYear}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="2" Grid.Column="4" Text="{Binding Movie2.Description}" MaxLines="1" LineBreakMode="TailTruncation" TextColor="Gray" VerticalOptions="Center"/>
+
+        <Label Grid.Row="3" Grid.Column="0" Text="{Binding Movie3.Id}" VerticalOptions="Center"/>
+        <Label Grid.Row="3" Grid.Column="1" Text="{Binding Movie3.Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" VerticalOptions="Center"/>
+        <Label Grid.Row="3" Grid.Column="2" Text="{Binding Movie3.Duration, StringFormat='{0} мин'}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="3" Grid.Column="3" Text="{Binding Movie3.ReleaseYear}" HorizontalOptions="Center" VerticalOptions="Center"/>
+        <Label Grid.Row="3" Grid.Column="4" Text="{Binding Movie3.Description}" MaxLines="1" LineBreakMode="TailTruncation" TextColor="Gray" VerticalOptions="Center"/>
+
+    </Grid>
+</ContentPage>
+
+Важное примечание: Если на странице будет меньше трех элементов, соответствующие строки будут пустыми, так как свойства Movie1, Movie2, Movie3 будут возвращать null. Для скрытия пустых строк может потребоваться использовать DataTrigger или конвертер, но для учебной задачи это является достаточной реализацией "одним Grid" с учетом фиксированной пагинации.
