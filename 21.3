@@ -1,0 +1,99 @@
+Это нестандартный подход, поскольку логика сортировки обычно находится в ViewModel. Однако, если вы хотите реализовать задание 3.3 исключительно в файле Code-Behind (Filmpage.xaml.cs), вам нужно сделать следующее:
+ * Назначить имена (x:Name) элементам Picker и ListView в XAML.
+ * Добавить обработчик события SelectedIndexChanged для Picker в XAML.
+ * Реализовать логику сортировки (LINQ) в обработчике C# кода.
+1. 🖥 Разметка XAML (Filmpage.xaml - Необходимые изменения)
+Убедитесь, что ваш файл XAML содержит Picker и ListView со следующими именами и обработчиком события:
+<Picker x:Name="SortPicker"
+        Title="Выберите параметр сортировки"
+        SelectedItem="Название"
+        SelectedIndexChanged="SortPicker_SelectedIndexChanged">
+    <Picker.ItemsSource>
+        <x:Array Type="{x:Type x:String}">
+            <x:String>Название</x:String>
+            <x:String>Длительность</x:String>
+            <x:String>Год выпуска</x:String>
+            <x:String>Убывание года выпуска</x:String>
+        </x:Array>
+    </Picker.ItemsSource>
+</Picker>
+
+<ListView x:Name="MoviesListView" 
+          ... /> 
+
+2. ⚙️ Код C# (Filmpage.xaml.cs)
+В этом файле мы добавим коллекцию данных (_allMovies) и метод-обработчик SortPicker_SelectedIndexChanged, который выполняет сортировку с помощью LINQ.
+// Файл: Filmpage.xaml.cs
+
+using Microsoft.Maui.Controls;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using YourClassLibrary.Models; // Замените на ваше пространство имен для модели Movie/Фильм
+
+public partial class Filmpage : ContentPage
+{
+    // Здесь должна храниться коллекция всех фильмов, загруженных из EF Core
+    private List<Movie> _allMovies = new List<Movie>();
+
+    public Filmpage()
+    {
+        InitializeComponent();
+        
+        // В реальном приложении здесь должна быть логика инициализации и загрузки данных
+        LoadData(); 
+    }
+
+    private void LoadData()
+    {
+        // --- ЗАГРУЗКА ДАННЫХ ИЗ EF CORE ---
+        // (Этот код должен быть адаптирован под ваш DbContext из ЛР №20)
+        // Пример:
+        // using (var context = new MovieDbContext(...)) 
+        // {
+        //     _allMovies = context.Movies.ToList();
+        // }
+        // -----------------------------------
+
+        // Инициализируем ListView с начальными данными
+        // (По умолчанию сортируем по названию)
+        MoviesListView.ItemsSource = _allMovies.OrderBy(m => m.Title).ToList();
+    }
+
+    // Обработчик события, который реализует сортировку (Задание 3.3)
+    private void SortPicker_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        var picker = (Picker)sender;
+        string selectedSort = picker.SelectedItem?.ToString();
+
+        if (selectedSort == null || _allMovies == null || _allMovies.Count == 0)
+            return;
+
+        // Применяем LINQ-сортировку в зависимости от выбора пользователя
+        IEnumerable<Movie> sortedMovies;
+        switch (selectedSort)
+        {
+            case "Длительность":
+                // Сортировка по возрастанию длительности
+                sortedMovies = _allMovies.OrderBy(m => m.Duration);
+                break;
+            case "Год выпуска":
+                // Сортировка по возрастанию года выпуска
+                sortedMovies = _allMovies.OrderBy(m => m.ReleaseYear);
+                break;
+            case "Убывание года выпуска":
+                // Сортировка по убыванию года выпуска
+                sortedMovies = _allMovies.OrderByDescending(m => m.ReleaseYear);
+                break;
+            case "Название":
+            default:
+                // Сортировка по названию
+                sortedMovies = _allMovies.OrderBy(m => m.Title);
+                break;
+        }
+
+        // Обновляем источник данных ListView отсортированной коллекцией
+        MoviesListView.ItemsSource = sortedMovies.ToList();
+    }
+}
+
