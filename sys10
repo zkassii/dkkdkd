@@ -1,0 +1,46 @@
+const int pir1 = 5;
+const int pir2 = 6;
+const int tilt1 = 7; 
+const int tilt2 = 8;
+const int buzzer = 9;
+const int led = 10;
+
+unsigned long alarmTimer = 0;
+bool isAlarmActive = false;
+
+void setup() {
+  pinMode(pir1, INPUT);
+  pinMode(pir2, INPUT);
+  
+  // Используем INPUT_PULLUP, чтобы датчик наклона работал четко
+  pinMode(tilt1, INPUT_PULLUP); 
+  pinMode(tilt2, INPUT_PULLUP);
+  
+  pinMode(buzzer, OUTPUT);
+  pinMode(led, OUTPUT);
+}
+
+void loop() {
+  // Проверяем PIR (дают HIGH при движении) 
+  // и Tilt (дают LOW при наклоне, так как мы притянули их к плюсу)
+  if (digitalRead(pir1) == HIGH || digitalRead(pir2) == HIGH || 
+      digitalRead(tilt1) == LOW || digitalRead(tilt2) == LOW) {
+    
+    isAlarmActive = true;
+    alarmTimer = millis(); // Засекаем 30 секунд с этого момента
+  }
+
+  [span_6](start_span)// Логика работы оповещения (30 секунд)[span_6](end_span)
+  if (isAlarmActive) {
+    if (millis() - alarmTimer < 30000) {
+      // Мигаем светодиодом и издаем звук
+      digitalWrite(led, (millis() / 300) % 2); // Быстрое мигание
+      tone(buzzer, 1000); // Писк на частоте 1000 Гц
+    } else {
+      // Время вышло
+      isAlarmActive = false;
+      digitalWrite(led, LOW);
+      noTone(buzzer);
+    }
+  }
+}
