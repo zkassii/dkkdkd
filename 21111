@@ -1,0 +1,410 @@
+package com.example.labwork21
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
+import kotlin.random.Random
+import com.example.labwork21.ui.theme.Labwork21Theme
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            Labwork21Theme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    MainScreen()
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreen() {
+    var selectedSection by remember { mutableStateOf(0) }
+    val sections = listOf("5.1 & 5.2", "5.3", "5.4", "5.5")
+
+    Column {
+        TabRow(selectedTabIndex = selectedSection) {
+            sections.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedSection == index,
+                    onClick = { selectedSection = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        when (selectedSection) {
+            0 -> Section51And52()
+            1 -> Section53()
+            2 -> Section54()
+            3 -> Section55()
+        }
+    }
+}
+
+// ==================== 5.1 и 5.2 ====================
+@Composable
+fun Section51And52() {
+    var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogData by remember { mutableStateOf<DialogData?>(null) }
+
+    if (showDialog && dialogData != null) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text(dialogData!!.title) },
+            text = { Text(dialogData!!.message) },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text(dialogData!!.confirmText)
+                }
+            },
+            dismissButton = if (dialogData!!.showDismiss) {
+                {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("Отмена")
+                    }
+                }
+            } else null
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        OutlinedTextField(
+            value = login,
+            onValueChange = { login = it },
+            label = { Text("Логин") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Пароль") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = {
+                when {
+                    login.isBlank() || password.isBlank() -> {
+                        dialogData = DialogData(
+                            title = "Ошибка ввода",
+                            message = "Пожалуйста, заполните оба поля!",
+                            confirmText = "ОК",
+                            showDismiss = true
+                        )
+                        showDialog = true
+                    }
+                    else -> {
+                        dialogData = DialogData(
+                            title = "Приветствие",
+                            message = "Добро пожаловать, $login",
+                            confirmText = "ОК",
+                            showDismiss = false
+                        )
+                        showDialog = true
+                    }
+                }
+            }
+        ) {
+            Text("Авторизоваться")
+        }
+    }
+}
+
+// ==================== 5.3 ====================
+@Composable
+fun Section53() {
+    var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
+    var dialogData by remember { mutableStateOf<DialogData?>(null) }
+
+    if (showDialog && dialogData != null) {
+        Dialog(
+            onDismissRequest = { showDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF2E7D32)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp)
+                ) {
+                    Text(
+                        text = dialogData!!.title,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color(0xFFFFD700)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = dialogData!!.message,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        if (dialogData!!.showDismiss) {
+                            Button(
+                                onClick = { showDialog = false },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF44336)
+                                )
+                            ) {
+                                Icon(Icons.Default.Cancel, contentDescription = "Отмена")
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Отмена")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Button(
+                            onClick = { showDialog = false },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50)
+                            )
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = "ОК")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(dialogData!!.confirmText)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        OutlinedTextField(
+            value = login,
+            onValueChange = { login = it },
+            label = { Text("Логин") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Пароль") },
+            modifier = Modifier.fillMaxWidth(),
+            visualTransformation = PasswordVisualTransformation()
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = {
+                when {
+                    login.isBlank() || password.isBlank() -> {
+                        dialogData = DialogData(
+                            title = "Ошибка ввода",
+                            message = "Заполните все поля!",
+                            confirmText = "ОК",
+                            showDismiss = true
+                        )
+                        showDialog = true
+                    }
+                    else -> {
+                        dialogData = DialogData(
+                            title = "Успешный вход",
+                            message = "Добро пожаловать, $login",
+                            confirmText = "ОК",
+                            showDismiss = false
+                        )
+                        showDialog = true
+                    }
+                }
+            }
+        ) {
+            Text("Авторизоваться")
+        }
+    }
+}
+
+// ==================== 5.4 ====================
+@Composable
+fun Section54() {
+    var memorySize by remember { mutableStateOf(Random.nextInt(1, 500)) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            ) {
+                Text(
+                    text = "$memorySize МБ",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    style = MaterialTheme.typography.displayMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = {
+                    memorySize = 0
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            message = "Кэш очищен",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                }
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Удалить")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Очистить кэш")
+            }
+        }
+    }
+}
+
+// ==================== 5.5 ====================
+@Composable
+fun Section55() {
+    var showGameMessage by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            if (showGameMessage) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Вы вошли в игру",
+                            style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Gamepad,
+                            contentDescription = "Game Image",
+                            modifier = Modifier.size(200.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "Хотите начать игру?",
+                            actionLabel = "Ок",
+                            duration = SnackbarDuration.Indefinite
+                        )
+                        when (result) {
+                            SnackbarResult.ActionPerformed -> {
+                                showGameMessage = true
+                            }
+                            SnackbarResult.Dismissed -> {
+                                showGameMessage = false
+                            }
+                        }
+                    }
+                }
+            ) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Играть")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Играть")
+            }
+        }
+    }
+}
+
+data class DialogData(
+    val title: String,
+    val message: String,
+    val confirmText: String,
+    val showDismiss: Boolean
+)
