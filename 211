@@ -1,0 +1,165 @@
+package com.example.labwork21
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.random.Random
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    LabScreen()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LabScreen() {
+    // ------------------ Экран авторизации ------------------
+    var showLoginScreen by remember { mutableStateOf(true) }
+
+    if (showLoginScreen) {
+        LoginScreen { showLoginScreen = false }
+    } else {
+        WorkScreen()
+    }
+}
+
+@Composable
+fun LoginScreen(onSuccessLogin: () -> Unit) {
+    var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+    var showSuccess by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+
+        Text(
+            text = "Авторизация",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = login,
+            onValueChange = { login = it },
+            label = { Text("Логин") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Пароль") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = {
+                if (login.isNotBlank() && password.isNotBlank()) {
+                    showSuccess = true
+                } else {
+                    showError = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Авторизоваться")
+        }
+    }
+
+    // Успешный вход
+    if (showSuccess) {
+        AlertDialogSuccess(
+            login = login,
+            onDismiss = { onSuccessLogin() }
+        )
+    }
+
+    // Ошибка ввода
+    if (showError) {
+        AlertDialogError(
+            onDismiss = { showError = false }
+        )
+    }
+}
+
+@Composable
+fun AlertDialogSuccess(
+    login: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Добро пожаловать, $login!") },
+        text = { Text("Вы успешно авторизовались") },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFF4CAF50)  // зелёный OK
+                )
+            ) {
+                Text("OK")
+            }
+        },
+        containerColor = Color(0xFFF1F8E9),       // светло-зелёный фон
+        textContentColor = Color.Black,
+        titleContentColor = Color(0xFF2E7D32)
+    )
+}
+
+@Composable
+fun AlertDialogError(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ошибка") },
+        text = { Text("Заполните оба поля!") },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color(0xFFF44336)  // красный OK
+                )
+            ) {
+                Text("OK")
+            }
+        },
+        containerColor = Color(0xFFFFEBEE),       // светло-красный фон
+        textContentColor = Color.Black,
+        titleContentColor = Color(0xFFB71C1C)
+    )
+}
