@@ -3,7 +3,6 @@ package com.example.labwork21
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +33,6 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun LabScreen() {
-    // ------------------ Экран авторизации ------------------
     var showLoginScreen by remember { mutableStateOf(true) }
 
     if (showLoginScreen) {
@@ -58,7 +56,6 @@ fun LoginScreen(onSuccessLogin: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-
         Text(
             text = "Авторизация",
             fontSize = 28.sp,
@@ -99,67 +96,68 @@ fun LoginScreen(onSuccessLogin: () -> Unit) {
         }
     }
 
-    // Успешный вход
     if (showSuccess) {
-        AlertDialogSuccess(
-            login = login,
-            onDismiss = { onSuccessLogin() }
+        AlertDialog(
+            onDismissRequest = { showSuccess = false; onSuccessLogin() },
+            title = { Text("Добро пожаловать, $login!") },
+            text = { Text("Вы успешно авторизовались") },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSuccess = false; onSuccessLogin() }
+                ) {
+                    Text("OK")
+                }
+            }
         )
     }
 
-    // Ошибка ввода
     if (showError) {
-        AlertDialogError(
-            onDismiss = { showError = false }
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            title = { Text("Ошибка") },
+            text = { Text("Заполните оба поля!") },
+            confirmButton = {
+                TextButton(onClick = { showError = false }) {
+                    Text("OK")
+                }
+            }
         )
     }
 }
 
 @Composable
-fun AlertDialogSuccess(
-    login: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Добро пожаловать, $login!") },
-        text = { Text("Вы успешно авторизовались") },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFF4CAF50)  // зелёный OK
-                )
-            ) {
-                Text("OK")
-            }
-        },
-        containerColor = Color(0xFFF1F8E9),       // светло-зелёный фон
-        textContentColor = Color.Black,
-        titleContentColor = Color(0xFF2E7D32)
-    )
-}
+fun WorkScreen() {
+    val cacheSize by remember { mutableIntStateOf(Random.nextInt(50, 999)) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
-@Composable
-fun AlertDialogError(
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Ошибка") },
-        text = { Text("Заполните оба поля!") },
-        confirmButton = {
-            TextButton(
-                onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = Color(0xFFF44336)  // красный OK
-                )
-            ) {
-                Text("OK")
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "${cacheSize} МБ",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Button(onClick = {
+                cacheSize = 0   // ← здесь просто присваиваем
+                scope.launch {
+                    snackbarHostState.showSnackbar("Кэш очищен", duration = SnackbarDuration.Short)
+                }
+            }) {
+                Text("Очистить кэш")
             }
-        },
-        containerColor = Color(0xFFFFEBEE),       // светло-красный фон
-        textContentColor = Color.Black,
-        titleContentColor = Color(0xFFB71C1C)
-    )
+        }
+    }
 }
