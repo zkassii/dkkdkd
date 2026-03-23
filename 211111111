@@ -1,0 +1,228 @@
+package com.example.labwork21
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.random.Random
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    LabScreen()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun LabScreen() {
+    var showLoginScreen by remember { mutableStateOf(true) }
+
+    if (showLoginScreen) {
+        LoginScreen { showLoginScreen = false }
+    } else {
+        WorkScreen()
+    }
+}
+
+@Composable
+fun LoginScreen(onSuccessLogin: () -> Unit) {
+    var login by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+    var showSuccess by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "Авторизация",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        OutlinedTextField(
+            value = login,
+            onValueChange = { login = it },
+            label = { Text("Логин") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = password,
+            onValueChange = { password = it },
+            label = { Text("Пароль") },
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Button(
+            onClick = {
+                if (login.isNotBlank() && password.isNotBlank()) {
+                    showSuccess = true
+                } else {
+                    showError = true
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Авторизоваться")
+        }
+    }
+
+    // Диалог успеха — пункт 5.3 (настроенный внешний вид)
+    if (showSuccess) {
+        AlertDialog(
+            onDismissRequest = { showSuccess = false; onSuccessLogin() },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = "Успех",
+                    tint = Color(0xFF4CAF50),           // зелёная иконка
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = { 
+                Text(
+                    text = "Добро пожаловать, $login!",
+                    color = Color(0xFF2E7D32)           // тёмно-зелёный заголовок
+                ) 
+            },
+            text = { 
+                Text(
+                    text = "Вы успешно авторизовались",
+                    color = Color.Black
+                ) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSuccess = false; onSuccessLogin() },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFF4CAF50)  // зелёная кнопка OK
+                    )
+                ) {
+                    Text("OK")
+                }
+            },
+            containerColor = Color(0xFFF1F8E9),          // очень светлый зелёный фон диалога
+            titleContentColor = Color(0xFF2E7D32),
+            textContentColor = Color.Black
+        )
+    }
+
+    // Диалог ошибки — пункт 5.3 (настроенный внешний вид + кнопка Отмена)
+    if (showError) {
+        AlertDialog(
+            onDismissRequest = { showError = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = "Ошибка",
+                    tint = Color(0xFFF44336),           // красная иконка
+                    modifier = Modifier.size(48.dp)
+                )
+            },
+            title = { 
+                Text(
+                    text = "Ошибка",
+                    color = Color(0xFFB71C1C)           // тёмно-красный заголовок
+                ) 
+            },
+            text = { 
+                Text(
+                    text = "Заполните оба поля!",
+                    color = Color.Black
+                ) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showError = false },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFF44336)  // красная кнопка OK
+                    )
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showError = false }
+                ) {
+                    Text("Отмена")
+                }
+            },
+            containerColor = Color(0xFFFFEBEE),          // очень светлый красный фон диалога
+            titleContentColor = Color(0xFFB71C1C),
+            textContentColor = Color.Black
+        )
+    }
+}
+
+@Composable
+fun WorkScreen() {
+    val cacheSize by remember { mutableIntStateOf(Random.nextInt(50, 999)) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "${cacheSize} МБ",
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Button(onClick = {
+                cacheSize = 0
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Кэш очищен",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }) {
+                Text("Очистить кэш")
+            }
+        }
+    }
+}
