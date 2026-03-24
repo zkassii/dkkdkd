@@ -1,0 +1,298 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media.Imaging;
+
+namespace FileManagerWPF
+{
+    public partial class MainWindow : Window
+    {
+        private string currentPath;
+        private readonly string defaultPath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        // Иконки (добавь папку Images в проект и установи Build Action = Resource)
+        private BitmapImage iconFolder;
+        private BitmapImage iconFile;
+        private BitmapImage iconExe;
+        private BitmapImage iconImage;
+        private BitmapImage iconUp; // для ".."
+
+        public MainWindow()
+        {
+            InitializeComponent();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            // Загружаем иконки
+            iconFolder = new BitmapImage(new Uri("pack://application:,,,/Images/folder.png"));
+            iconFile   = new BitmapImage(new Uri("pack://application:,,,/Images/file.png"));
+            iconExe    = new BitmapImage(new Uri("pack://application:,,,/Images/exe.png"));
+            iconImage  = new BitmapImage(new Uri("pack://application:,,,/Images/image.png"));
+            iconUp     = new BitmapImage(new Uri("pack://application:,,,/Images/up.png"));
+
+            currentPath = defaultPath;
+            txtPath.Text = currentPath;
+            LoadDirectory(currentPath);
+        }
+
+        // ====================== 5.2 Отображение списка файлов ======================
+        private void LoadDirectory(string path)
+        {
+            try
+            {
+                if (!Directory.Exists(path))
+                {
+                    MessageBox.Show("Указанный каталог не существует!", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                currentPath = path;
+                txtPath.Text = path;
+
+                var items = new List<FileItem>();
+
+                // Специальная запись ".."
+                if (Directory.GetParent(path) != null)
+                {
+                    items.Add(new FileItem
+                    {
+                        Icon = iconUp,
+                        Name = "..",
+                        FullPath = Directory.GetParent(path).FullName,
+                        IsDirectory = true
+                    });
+                }
+
+                // Папки
+                foreach (var dir in Directory.GetDirectories(path))
+                {
+                    var di = new DirectoryInfo(dir);
+                    items.Add(new FileItem
+                    {
+                        Icon = iconFolder,
+                        Name = di.Name,
+                        FullPath = di.FullName,
+                        LastWriteTime = di.LastWriteTime,
+                        Size = "",
+                        IsDirectory = true
+                    });
+                }
+
+                // Файлы
+                foreach (var file in Directory.GetFiles(path))
+                {
+                    var fi = new FileInfo(file);
+                    items.Add(new FileItem
+                    {
+                        Icon = GetIconForFile(fi),
+                        Name = fi.Name,
+                        FullPath = fi.FullName,
+                        LastWriteTime = fi.LastWriteTime,
+                        Size = FormatFileSize(fi.Length),
+                        IsDirectory = false
+                    });
+                }
+
+                lvFiles.ItemsSource = items.OrderBy(i => !i.IsDirectory).ThenBy(i => i.Name); // папки сверху
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка загрузки каталога:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private BitmapImage GetIconForFile(FileInfo fi)
+        {
+            string ext = fi.Extension.ToLower();
+            if (ext == ".exe" || ext == ".bat" || ext == ".cmd")
+                return iconExe;
+            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".bmp")
+                return iconImage;
+            return iconFile;
+        }
+
+        private string FormatFileSize(long bytes)
+        {
+            if (bytes == 0) return "0 Б";
+            string[] sizes = { "Б", "Кб", "Мб", "Гб" };
+            int order = 0;
+            double size = bytes;
+            while (size >= 1024 && order < sizes.Length - 1)
+            {
+                order++;
+                size /= 1024;
+            }
+            return $"{size:0.##} {sizes[order]}";
+        }
+
+        // Двойной клик
+        private void LvFiles_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (lvFiles.SelectedItem is FileItem item)
+            {
+                if (item.IsDirectory)
+                {
+                    LoadDirectory(item.FullPath);
+                }
+                else
+                {
+                    // 5.3 Открытие файла
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = item.FullPath,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Не удалось открыть файл:\n{ex.Message}");
+                    }
+                }
+            }
+        }
+
+        // Переход по кнопке или Enter в поле пути
+        private void BtnGo_Click(object sender, RoutedEventArgs e) => LoadDirectory(txtPath.Text.Trim());
+
+        private void TxtPath_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+                LoadDirectory(txtPath.Text.Trim());
+        }
+
+        // ====================== 5.4 Буфер обмена ======================
+        private void CtxCopy_Click(object sender, RoutedEventArgs e)
+        {
+            var selected = lvFiles.SelectedItems.Cast<FileItem>().ToList();
+            if (selected.Count == 0) return;
+
+            var files = new StringCollection();
+            foreach (var item in selected)
+                if (!item.Name.Equals("..")) // не копируем ".."
+                    files.Add(item.FullPath);
+
+            if (files.Count > 0)
+            {
+                Clipboard.SetFileDropList(files);
+                MessageBox.Show($"Скопировано файлов: {files.Count}");
+            }
+        }
+
+        private void CtxPaste_Click(object sender, RoutedEventArgs e)
+        {
+            if (!Clipboard.ContainsFileDropList())
+            {
+                MessageBox.Show("В буфере обмена нет файлов для вставки.");
+                return;
+            }
+
+            var files = Clipboard.GetFileDropList();
+            int count = 0;
+
+            foreach (string source in files)
+            {
+                try
+                {
+                    string dest = Path.Combine(currentPath, Path.GetFileName(source));
+                    if (File.Exists(source))
+                    {
+                        File.Copy(source, dest, true);
+                        count++;
+                    }
+                    else if (Directory.Exists(source))
+                    {
+                        // Простая копия папки (рекурсивно)
+                        DirectoryCopy(source, dest);
+                        count++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Ошибка при вставке {source}:\n{ex.Message}");
+                }
+            }
+
+            MessageBox.Show($"Вставлено: {count} объектов");
+            LoadDirectory(currentPath); // обновляем список
+        }
+
+        private static void DirectoryCopy(string sourceDir, string destDir)
+        {
+            Directory.CreateDirectory(destDir);
+            foreach (string file in Directory.GetFiles(sourceDir))
+            {
+                string destFile = Path.Combine(destDir, Path.GetFileName(file));
+                File.Copy(file, destFile, true);
+            }
+            foreach (string dir in Directory.GetDirectories(sourceDir))
+            {
+                string destSub = Path.Combine(destDir, Path.GetFileName(dir));
+                DirectoryCopy(dir, destSub);
+            }
+        }
+
+        // ====================== 5.5 Работа с архивами ======================
+        private void CtxCompress_Click(object sender, RoutedEventArgs e)
+        {
+            if (lvFiles.SelectedItem is not FileItem item || !item.IsDirectory || item.Name == "..")
+            {
+                MessageBox.Show("Выберите папку для сжатия.");
+                return;
+            }
+
+            string zipPath = Path.Combine(currentPath, item.Name + ".zip");
+            try
+            {
+                if (File.Exists(zipPath))
+                    File.Delete(zipPath);
+
+                ZipFile.CreateFromDirectory(item.FullPath, zipPath);
+                MessageBox.Show($"Архив создан: {zipPath}");
+                LoadDirectory(currentPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка создания архива:\n{ex.Message}");
+            }
+        }
+
+        private void CtxExtract_Click(object sender, RoutedEventArgs e)
+        {
+            if (lvFiles.SelectedItem is not FileItem item || !item.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("Выберите ZIP-файл для извлечения.");
+                return;
+            }
+
+            string extractPath = Path.Combine(currentPath, Path.GetFileNameWithoutExtension(item.Name));
+            try
+            {
+                if (Directory.Exists(extractPath))
+                    Directory.Delete(extractPath, true);
+
+                ZipFile.ExtractToDirectory(item.FullPath, extractPath);
+                MessageBox.Show($"Извлечено в: {extractPath}");
+                LoadDirectory(currentPath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Ошибка извлечения:\n{ex.Message}");
+            }
+        }
+
+        private void Exit_Click(object sender, RoutedEventArgs e)
+        {
+            Close();
+        }
+    }
+}
