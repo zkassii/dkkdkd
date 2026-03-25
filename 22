@@ -1,0 +1,272 @@
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.*
+
+@Composable
+fun CountdownScreen() {
+    var timeLeft by remember { mutableStateOf(60) }     // секунды
+    var isRunning by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    // Прогресс от 1.0 до 0.0
+    val progress = timeLeft / 60f
+
+    // Изменение цвета в зависимости от оставшегося времени
+    val indicatorColor = when {
+        timeLeft >= 30 -> Color(0xFF4CAF50)     // зелёный
+        timeLeft >= 10 -> Color(0xFFFFC107)     // жёлтый
+        else -> Color(0xFFF44336)               // красный
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.size(220.dp)
+        ) {
+            // Круговой индикатор с увеличенной толщиной
+            CircularProgressIndicator(
+                progress = { progress },
+                color = indicatorColor,
+                strokeWidth = 16.dp,           // увеличенная толщина полоски
+                modifier = Modifier.size(200.dp)
+            )
+
+            // Отображение оставшегося времени
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$timeLeft",
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = indicatorColor
+                )
+                Text(
+                    text = "секунд",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Button(
+            onClick = {
+                if (!isRunning) {
+                    isRunning = true
+                    timeLeft = 60
+
+                    scope.launch {
+                        while (timeLeft > 0) {
+                            delay(1000)        // 1 секунда
+                            timeLeft--
+                        }
+                        isRunning = false
+                    }
+                }
+            },
+            enabled = !isRunning
+        ) {
+            Text("Старт")
+        }
+    }
+}
+
+// ===================== ПРЕВЬЮ =====================
+@Preview(showBackground = true, name = "Лабораторная 5.3")
+@Composable
+fun CountdownScreenPreview() {
+    MaterialTheme {
+        CountdownScreen()
+    }
+}
+
+
+
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import kotlin.random.Random
+
+@Composable
+fun BadgeScreen() {
+    var messageCount by remember { mutableStateOf(0) }
+    val random = remember { Random }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // BadgedBox с иконкой письма
+        BadgedBox(
+            badge = {
+                if (messageCount > 0) {
+                    Badge(
+                        containerColor = Color(0xFFE91E63),   // розовый фон
+                        contentColor = Color.White            // белый текст
+                    ) {
+                        Text(
+                            text = messageCount.toString(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Email,
+                contentDescription = "Сообщения",
+                modifier = Modifier.size(72.dp),
+                tint = Color(0xFF2196F3)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // Кнопка "Обновить"
+        Button(
+            onClick = {
+                // Увеличиваем счётчик на случайное значение (1–5)
+                messageCount += random.nextInt(1, 6)
+            }
+        ) {
+            Text("Обновить")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Дополнительная информация
+        Text(
+            text = "Количество сообщений: $messageCount",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+// ===================== ПРЕВЬЮ =====================
+@Preview(showBackground = true, name = "Лабораторная 5.4")
+@Composable
+fun BadgeScreenPreview() {
+    MaterialTheme {
+        BadgeScreen()
+    }
+}
+
+
+
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import android.widget.Toast
+import kotlin.random.Random
+
+@Composable
+fun BadgeScreen5_5() {
+    var messageCount by remember { mutableStateOf(0) }
+    val random = remember { Random }
+    val context = LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // BadgedBox + кликабельная иконка
+        BadgedBox(
+            badge = {
+                // Счетчик показывается только если сообщений > 0
+                if (messageCount > 0) {
+                    Badge(
+                        containerColor = Color(0xFFE91E63),   // розовый фон
+                        contentColor = Color.White            // белый текст
+                    ) {
+                        Text(
+                            text = messageCount.toString(),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Email,
+                contentDescription = "Сообщения",
+                modifier = Modifier
+                    .size(72.dp)
+                    .clickable {
+                        if (messageCount > 0) {
+                            Toast.makeText(
+                                context,
+                                "Все сообщения прочитаны",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            messageCount = 0
+                        }
+                    },
+                tint = Color(0xFF2196F3)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // Кнопка "Обновить"
+        Button(
+            onClick = {
+                messageCount += random.nextInt(1, 6)   // +1 до +5
+            }
+        ) {
+            Text("Обновить")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Количество сообщений: $messageCount",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+// ===================== ПРЕВЬЮ =====================
+@Preview(showBackground = true, name = "Лабораторная 5.5")
+@Composable
+fun BadgeScreen5_5Preview() {
+    MaterialTheme {
+        BadgeScreen5_5()
+    }
+}
