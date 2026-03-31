@@ -1,0 +1,70 @@
+// ====================== 5.4 + 5.5 ======================
+static void FindDuplicates(string rootDir, bool recursive, bool deleteDups)
+{
+    SearchOption option = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+    string[] files = Directory.GetFiles(rootDir, "*.*", option);
+
+    var hashDict = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+    using (var sha = SHA256.Create())
+    {
+        foreach (string f in files)
+        {
+            string hash = GetHash(f, sha);
+
+            if (!hashDict.ContainsKey(hash))
+                hashDict[hash] = new List<string>();
+
+            hashDict[hash].Add(f);
+        }
+    }
+
+    bool foundAny = false;
+
+    foreach (var pair in hashDict)
+    {
+        if (pair.Value.Count > 1)
+        {
+            foundAny = true;
+            Console.WriteLine($"\nНайдены дубликаты (хэш: {pair.Key.Substring(0, 16)}...):");
+
+            for (int i = 0; i < pair.Value.Count; i++)
+            {
+                Console.WriteLine($"  {i + 1}. {pair.Value[i]}");
+            }
+
+            if (deleteDups)
+            {
+                // Удаляем все кроме первого
+                for (int i = 1; i < pair.Value.Count; i++)
+                {
+                    try
+                    {
+                        File.Delete(pair.Value[i]);
+                        Console.WriteLine($"     → УДАЛЁН: {pair.Value[i]}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"     → Ошибка удаления: {pair.Value[i]} | {ex.Message}");
+                    }
+                }
+            }
+        }
+    }
+
+    if (!foundAny)
+        Console.WriteLine("\nДубликаты не найдены.");
+
+    if (deleteDups)
+        Console.WriteLine("\nУдаление дубликатов завершено.");
+}
+
+static string GetHash(string filePath, SHA256 sha)
+{
+    using (var stream = File.OpenRead(filePath))
+    {
+        byte[] hashBytes = sha.ComputeHash(stream);
+        // Важно: убираем дефисы и приводим к нижнему регистру
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+    }
+}
