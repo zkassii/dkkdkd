@@ -1,14 +1,4 @@
-Вот готовый **Kotlin-код** для лабораторной работы №24 по Jetpack Compose. Я реализовал все пункты задания (5.1–5.5) в одном экране для удобства. 
-
-Сначала добавьте изображения в ресурсы проекта:
-- `res/drawable/ic_square.png` (квадратная картинка)
-- `res/drawable/ic_circle.png` (круглая картинка)
-- `res/drawable/ic_rect.png` (прямоугольная картинка)
-
-### Главный экран (MainActivity.kt или отдельный Composable)
-
-```kotlin
-package com.example.lab24animation
+package com.example.labwork24
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -19,13 +9,21 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -35,7 +33,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme {
-                AnimationLabScreen()
+                LabWork24Screen()
             }
         }
     }
@@ -43,65 +41,71 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnimationLabScreen() {
+fun LabWork24Screen() {
     val scrollState = rememberScrollState()
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Лабораторная №24 — Анимации в Jetpack Compose") })
+            TopAppBar(
+                title = { Text("Лабораторная работа №24 — Настройка анимации") }
+            )
         }
-    ) { padding ->
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(innerPadding)
                 .padding(16.dp)
                 .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(32.dp),
+            verticalArrangement = Arrangement.spacedBy(40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("5.1 Анимация с Animate*AsState", style = MaterialTheme.typography.headlineSmall)
+            // 5.1 Анимация с использованием Animate*AsState
+            SectionTitle("5.1 Анимация с использованием Animate*AsState")
 
-            // 5.1.1 Смена цвета tween 3 сек
             ColorTweenAnimation()
-
-            // Смена цвета keyframes 10 сек с промежуточными цветами
             ColorKeyframesAnimation()
-
-            // Смена размера квадратной картинки repeatable 3 раза
             ImageSizeRepeatable()
-
-            // Смена размера квадратной картинки spring
             ImageSizeSpring()
-
-            // Бесконечная смена цвета контейнера
             InfiniteColorContainer()
 
-            Text("5.2 Анимация с Animatable", style = MaterialTheme.typography.headlineSmall)
+            // 5.2 Анимация с использованием Animatable
+            SectionTitle("5.2 Анимация с использованием Animatable")
 
             AnimatableColorChange()
             AnimatableImageSizeRepeatable()
             AnimatableImageRotation()
 
-            Text("5.3 Анимация с UpdateTransition", style = MaterialTheme.typography.headlineSmall)
+            // 5.3 Анимация с использованием UpdateTransition
+            SectionTitle("5.3 Анимация с использованием UpdateTransition")
 
             UpdateTransitionRectImage()
 
-            Text("5.4 Анимация с InfiniteTransition", style = MaterialTheme.typography.headlineSmall)
+            // 5.4 Анимация с использованием InfiniteTransition
+            SectionTitle("5.4 Анимация с использованием InfiniteTransition")
 
             InfiniteFabAnimation()
 
-            Text("5.5 Анимация с AnimatedVisibility", style = MaterialTheme.typography.headlineSmall)
+            // 5.5 Анимация с использованием AnimatedVisibility
+            SectionTitle("5.5 Анимация с использованием AnimatedVisibility")
 
             HamburgerMenuWithAnimatedItems()
         }
     }
 }
-```
 
-### 5.1 Animate*AsState
+@Composable
+fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.headlineSmall,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
 
-```kotlin
+// ====================== 5.1 Animate*AsState ======================
+
 @Composable
 fun ColorTweenAnimation() {
     var isBlue by remember { mutableStateOf(false) }
@@ -112,14 +116,16 @@ fun ColorTweenAnimation() {
     )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Смена цвета (tween 3 сек)")
+        Text("Смена цвета (tween 3 секунды)")
         Box(
             modifier = Modifier
-                .size(120.dp)
+                .size(130.dp)
                 .background(color)
                 .clickable { isBlue = !isBlue }
         )
-        Button(onClick = { isBlue = !isBlue }) { Text("Переключить цвет") }
+        Button(onClick = { isBlue = !isBlue }) {
+            Text("Переключить цвет")
+        }
     }
 }
 
@@ -138,10 +144,10 @@ fun ColorKeyframesAnimation() {
     )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Смена цвета (keyframes 10 сек)")
+        Text("Смена цвета (keyframes 10 секунд)")
         Box(
             modifier = Modifier
-                .size(120.dp)
+                .size(130.dp)
                 .background(color)
                 .clickable { isActive = !isActive }
         )
@@ -162,13 +168,15 @@ fun ImageSizeRepeatable() {
     )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Размер картинки (repeatable 3 раза)")
+        Text("Смена размера квадратной картинки (repeatable 3 раза)")
         Image(
             painter = painterResource(id = R.drawable.ic_square),
             contentDescription = null,
             modifier = Modifier.size(size)
         )
-        Button(onClick = { isBig = !isBig }) { Text("Переключить размер") }
+        Button(onClick = { isBig = !isBig }) {
+            Text("Запустить анимацию")
+        }
     }
 }
 
@@ -185,13 +193,15 @@ fun ImageSizeSpring() {
     )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Размер картинки (spring)")
+        Text("Смена размера квадратной картинки (spring)")
         Image(
             painter = painterResource(id = R.drawable.ic_square),
             contentDescription = null,
             modifier = Modifier.size(size)
         )
-        Button(onClick = { isBig = !isBig }) { Text("Переключить размер") }
+        Button(onClick = { isBig = !isBig }) {
+            Text("Запустить анимацию")
+        }
     }
 }
 
@@ -217,11 +227,9 @@ fun InfiniteColorContainer() {
         )
     }
 }
-```
 
-### 5.2 Animatable
+// ====================== 5.2 Animatable ======================
 
-```kotlin
 @Composable
 fun AnimatableColorChange() {
     val color = remember { Animatable(Color.Red) }
@@ -231,7 +239,7 @@ fun AnimatableColorChange() {
         Text("Animatable — смена цвета")
         Box(
             modifier = Modifier
-                .size(120.dp)
+                .size(130.dp)
                 .background(color.value)
                 .clickable {
                     scope.launch {
@@ -266,7 +274,7 @@ fun AnimatableImageSizeRepeatable() {
                 )
             }
         }) {
-            Text("Запустить анимацию размера")
+            Text("Запустить анимацию")
         }
     }
 }
@@ -282,7 +290,7 @@ fun AnimatableImageRotation() {
             painter = painterResource(id = R.drawable.ic_rect),
             contentDescription = null,
             modifier = Modifier
-                .size(120.dp)
+                .size(130.dp)
                 .rotate(rotation.value)
         )
         Button(onClick = {
@@ -297,11 +305,9 @@ fun AnimatableImageRotation() {
         }
     }
 }
-```
 
-### 5.3 UpdateTransition
+// ====================== 5.3 UpdateTransition ======================
 
-```kotlin
 enum class BoxState { Collapsed, Expanded }
 
 @Composable
@@ -309,10 +315,10 @@ fun UpdateTransitionRectImage() {
     var currentState by remember { mutableStateOf(BoxState.Collapsed) }
     val transition = updateTransition(targetState = currentState, label = "rect transition")
 
-    val sizeWidth by transition.animateDp(label = "width") { state ->
+    val width by transition.animateDp(label = "width") { state ->
         if (state == BoxState.Expanded) 300.dp else 100.dp
     }
-    val sizeHeight by transition.animateDp(label = "height") { state ->
+    val height by transition.animateDp(label = "height") { state ->
         if (state == BoxState.Expanded) 600.dp else 200.dp
     }
     val rotation by transition.animateFloat(label = "rotation") { state ->
@@ -320,26 +326,25 @@ fun UpdateTransitionRectImage() {
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("UpdateTransition — размер + поворот прямоугольной картинки")
+        Text("UpdateTransition — размер и поворот прямоугольной картинки")
         Image(
             painter = painterResource(id = R.drawable.ic_rect),
             contentDescription = null,
             modifier = Modifier
-                .size(width = sizeWidth, height = sizeHeight)
+                .size(width = width, height = height)
                 .rotate(rotation)
         )
         Button(onClick = {
-            currentState = if (currentState == BoxState.Collapsed) BoxState.Expanded else BoxState.Collapsed
+            currentState = if (currentState == BoxState.Collapsed)
+                BoxState.Expanded else BoxState.Collapsed
         }) {
-            Text(if (currentState == BoxState.Collapsed) "Развернуть" else "Свернуть")
+            Text(if (currentState == BoxState.Collapsed) "Развернуть" else "Вернуть")
         }
     }
 }
-```
 
-### 5.4 InfiniteTransition — FloatingActionButton
+// ====================== 5.4 InfiniteTransition ======================
 
-```kotlin
 @Composable
 fun InfiniteFabAnimation() {
     val infiniteTransition = rememberInfiniteTransition(label = "fab scale")
@@ -354,20 +359,18 @@ fun InfiniteFabAnimation() {
     )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("InfiniteTransition — пульсация FAB")
+        Text("InfiniteTransition — пульсация FloatingActionButton")
         FloatingActionButton(
-            onClick = { /* ничего */ },
+            onClick = { },
             modifier = Modifier.scale(scale)
         ) {
             Icon(Icons.Default.Phone, contentDescription = "Звонок")
         }
     }
 }
-```
 
-### 5.5 AnimatedVisibility с разными анимациями
+// ====================== 5.5 AnimatedVisibility ======================
 
-```kotlin
 @Composable
 fun HamburgerMenuWithAnimatedItems() {
     var isMenuOpen by remember { mutableStateOf(false) }
@@ -380,63 +383,33 @@ fun HamburgerMenuWithAnimatedItems() {
             )
         }
 
-        AnimatedVisibility(
-            visible = isMenuOpen,
-            enter = fadeIn() + slideInHorizontally(),
-            exit = fadeOut() + slideOutHorizontally()
-        ) {
-            Column {
-                // Настройки — slide + fade
-                AnimatedVisibility(
-                    visible = isMenuOpen,
-                    enter = slideInVertically(initialOffsetY = { -40 }) + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    Text("Настройки", fontSize = 20.sp, modifier = Modifier.padding(8.dp))
-                }
+        Column {
+            // Настройки
+            AnimatedVisibility(
+                visible = isMenuOpen,
+                enter = slideInVertically(initialOffsetY = { -40 }) + fadeIn(),
+                exit = slideOutVertically() + fadeOut()
+            ) {
+                Text("Настройки", fontSize = 20.sp, modifier = Modifier.padding(12.dp))
+            }
 
-                // Контакты — scale
-                AnimatedVisibility(
-                    visible = isMenuOpen,
-                    enter = scaleIn() + fadeIn(),
-                    exit = scaleOut() + fadeOut()
-                ) {
-                    Text("Контакты", fontSize = 20.sp, modifier = Modifier.padding(8.dp))
-                }
+            // Контакты
+            AnimatedVisibility(
+                visible = isMenuOpen,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut()
+            ) {
+                Text("Контакты", fontSize = 20.sp, modifier = Modifier.padding(12.dp))
+            }
 
-                // О программе — expand
-                AnimatedVisibility(
-                    visible = isMenuOpen,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Text("О программе", fontSize = 20.sp, modifier = Modifier.padding(8.dp))
-                }
+            // О программе
+            AnimatedVisibility(
+                visible = isMenuOpen,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Text("О программе", fontSize = 20.sp, modifier = Modifier.padding(12.dp))
             }
         }
     }
 }
-```
-
-### Контрольные вопросы (для отчёта)
-
-**8.1** Для чего используется анимация в приложениях?  
-Анимация улучшает пользовательский опыт: делает интерфейс живым, помогает понять переходы между состояниями, направляет внимание пользователя и повышает ощущение качества приложения.
-
-**8.2** На какие виды делится анимация в Jetpack Compose?  
-- Value-based анимации (`animate*AsState`, `Animatable`, `updateTransition`, `InfiniteTransition`)  
-- Composable-based (`AnimatedVisibility`, `AnimatedContent`, `animateContentSize` и др.)
-
-**8.3** Для чего используется анимация `Animate*AsState`?  
-Для простого автоматического анимирования одного значения (цвет, размер, прозрачность и т.д.) при изменении состояния (`targetValue`).
-
-**8.4** Для чего используется анимация `UpdateTransition`?  
-Для синхронной анимации сразу нескольких свойств одного или нескольких элементов при переходе между состояниями (например, размер + поворот).
-
-**8.5** Для чего используется анимация `InfiniteTransition`?  
-Для создания непрерывно повторяющихся (бесконечных) анимаций, например, пульсация кнопки, загрузочные индикаторы, бесконечное вращение.
-
-### Вывод
-В ходе лабораторной работы изучены основные API анимаций Jetpack Compose: от простых `animate*AsState` до сложных переходов с помощью `UpdateTransition` и бесконечных анимаций. Полученные навыки позволяют создавать плавный и современный интерфейс Android-приложений.
-
-Скопируйте код в свой проект, добавьте необходимые импорты (Compose Animation, Material3, Icons и т.д.) и запустите. Если нужно — могу разбить на отдельные экраны или добавить больше комментариев. Удачи с защитой лабораторной!
