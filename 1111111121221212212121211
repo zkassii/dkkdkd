@@ -1,0 +1,329 @@
+Вот пошаговое решение для создания WPF-приложения "Системный монитор" (проект LabWork21), которое не требует прав администратора и использует WMI + реестр + NetworkInterface.
+
+1. Создание проекта
+
+1. Запустите Visual Studio
+2. Создайте новый проект WPF Application (.NET 6/7/8) → назовите LabWork21
+
+2. Добавление ссылки на System.Management
+
+В обозревателе решений → правой кнопкой по проекту → Manage NuGet Packages → установите:
+
+· System.Management
+
+3. Код главного окна (MainWindow.xaml)
+
+```xml
+<Window x:Class="LabWork21.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Системный монитор" Height="550" Width="800">
+    <TabControl Margin="10">
+        <!-- Процессор -->
+        <TabItem Header="Процессор">
+            <ListBox Name="CpuListBox"/>
+        </TabItem>
+        
+        <!-- Видеокарта -->
+        <TabItem Header="Видеокарта">
+            <ListBox Name="GpuListBox"/>
+        </TabItem>
+        
+        <!-- Материнская плата -->
+        <TabItem Header="Материнская плата">
+            <ListBox Name="MotherboardListBox"/>
+        </TabItem>
+        
+        <!-- Физические диски -->
+        <TabItem Header="Диски">
+            <ListBox Name="DiskListBox"/>
+        </TabItem>
+        
+        <!-- ОС -->
+        <TabItem Header="Операционная система">
+            <ListBox Name="OsListBox"/>
+        </TabItem>
+        
+        <!-- Сеть -->
+        <TabItem Header="Сеть">
+            <ListBox Name="NetworkListBox"/>
+        </TabItem>
+        
+        <!-- Установленные программы -->
+        <TabItem Header="Установленные программы">
+            <ListBox Name="ProgramsListBox"/>
+        </TabItem>
+    </TabControl>
+</Window>
+```
+
+4. Код логики (MainWindow.xaml.cs)
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Management;
+using System.Net.NetworkInformation;
+using Microsoft.Win32;
+using System.Windows;
+
+namespace LabWork21
+{
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+            LoadAllInfo();
+        }
+
+        private void LoadAllInfo()
+        {
+            LoadProcessorInfo();
+           LoadVideoControllerInfo();
+            LoadMotherboardInfo();
+            LoadDiskInfo();
+            LoadOsInfo();
+            LoadNetworkInfo();
+            LoadInstalledPrograms();
+        }
+
+        // 1. Процессоры (Win32_Processor)
+        private void LoadProcessorInfo()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_Processor"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        string name = obj["Name"]?.ToString() ?? "Неизвестно";
+                        string manufacturer = obj["Manufacturer"]?.ToString() ?? "Неизвестно";
+                        string cores = obj["NumberOfCores"]?.ToString() ?? "Неизвестно";
+                        string threads = obj["NumberOfLogicalProcessors"]?.ToString() ?? "Неизвестно";
+                        
+                        CpuListBox.Items.Add($"Процессор: {name}");
+                        CpuListBox.Items.Add($"Производитель: {manufacturer}");
+                        CpuListBox.Items.Add($"Ядер: {cores}");
+                        CpuListBox.Items.Add($"Логических процессоров: {threads}");
+                        CpuListBox.Items.Add("------------------------");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                CpuListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 2. Видеокарты (Win32_VideoController)
+        private void LoadVideoControllerInfo()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_VideoController WHERE Name IS NOT NULL"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        string name = obj["Name"]?.ToString() ?? "Неизвестно";
+                        string memory = obj["AdapterRAM"] != null ? (Convert.ToInt64(obj["AdapterRAM"]) / 1048576).ToString() + " MB" : "Неизвестно";
+                        string driverVersion = obj["DriverVersion"]?.ToString() ?? "Неизвестно";
+                        
+                        GpuListBox.Items.Add($"Видеокарта: {name}");
+                        GpuListBox.Items.Add($"Видеопамять: {memory}");
+                        GpuListBox.Items.Add($"Версия драйвера: {driverVersion}");
+                        GpuListBox.Items.Add("------------------------");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                GpuListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 3. Материнские платы (Win32_MotherboardDevice)
+        private void LoadMotherboardInfo()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_MotherboardDevice"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        string product = obj["Product"]?.ToString() ?? "Неизвестно";
+                        string manufacturer = obj["Manufacturer"]?.ToString() ?? "Неизвестно";
+                        string version = obj["Version"]?.ToString() ?? "Неизвестно";
+                        
+                        MotherboardListBox.Items.Add($"Модель: {product}");
+                        MotherboardListBox.Items.Add($"Производитель: {manufacturer}");
+                        MotherboardListBox.Items.Add($"Версия: {version}");
+                        MotherboardListBox.Items.Add("------------------------");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MotherboardListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 4. Физические диски (Win32_DiskDrive)
+        private void LoadDiskInfo()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        string model = obj["Model"]?.ToString() ?? "Неизвестно";
+                        string size = obj["Size"] != null ? (Convert.ToInt64(obj["Size"]) / (1024 * 1024 * 1024)).ToString() + " GB" : "Неизвестно";
+                        string interfaceType = obj["InterfaceType"]?.ToString() ?? "Неизвестно";
+                        
+                        DiskListBox.Items.Add($"Модель: {model}");
+                        DiskListBox.Items.Add($"Размер: {size}");
+                        DiskListBox.Items.Add($"Интерфейс: {interfaceType}");
+                        DiskListBox.Items.Add("------------------------");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DiskListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 5. Операционная система (Win32_OperatingSystem)
+        private void LoadOsInfo()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT * FROM Win32_OperatingSystem"))
+                {
+                    foreach (ManagementObject obj in searcher.Get())
+                    {
+                        string name = obj["Caption"]?.ToString() ?? "Неизвестно";
+                        string version = obj["Version"]?.ToString() ?? "Неизвестно";
+                        string buildNumber = obj["BuildNumber"]?.ToString() ?? "Неизвестно";
+                        
+                        OsListBox.Items.Add($"ОС: {name}");
+                        OsListBox.Items.Add($"Версия: {version}");
+                        OsListBox.Items.Add($"Сборка: {buildNumber}");
+                        OsListBox.Items.Add("------------------------");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                OsListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 6. Сетевые интерфейсы (NetworkInterface)
+        private void LoadNetworkInfo()
+        {
+            try
+            {
+                NetworkInterface[] nics = NetworkInterface.GetAllNetworkInterfaces();
+                foreach (NetworkInterface adapter in nics)
+                {
+                    NetworkListBox.Items.Add($"Имя: {adapter.Name}");
+                    NetworkListBox.Items.Add($"Тип: {adapter.NetworkInterfaceType}");
+                    NetworkListBox.Items.Add($"Скорость: {adapter.Speed / 1000000} Mbps");
+                    NetworkListBox.Items.Add($"Статус: {adapter.OperationalStatus}");
+                    NetworkListBox.Items.Add($"MAC адрес: {adapter.GetPhysicalAddress()}");
+                    NetworkListBox.Items.Add("------------------------");
+                }
+            }
+            catch (Exception ex)
+            {
+                NetworkListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+
+        // 7. Установленные программы (реестр)
+        private void LoadInstalledPrograms()
+        {
+            try
+            {
+                HashSet<string> programNames = new HashSet<string>();
+                
+                // HKLM для 64-bit и 32-bit программ
+                string registryKey64 = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
+                string registryKey32 = @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall";
+                
+                AddProgramsFromRegistry(Registry.LocalMachine, registryKey64, programNames);
+                AddProgramsFromRegistry(Registry.LocalMachine, registryKey32, programNames);
+                AddProgramsFromRegistry(Registry.CurrentUser, registryKey64, programNames);
+                
+                foreach (string program in programNames)
+                {
+                    ProgramsListBox.Items.Add(program);
+                }
+                
+                if (programNames.Count == 0)
+                    ProgramsListBox.Items.Add("Не удалось найти установленные программы");
+            }
+            catch (Exception ex)
+            {
+                ProgramsListBox.Items.Add($"Ошибка: {ex.Message}");
+            }
+        }
+        
+        private void AddProgramsFromRegistry(RegistryKey root, string subKey, HashSet<string> programNames)
+        {
+            try
+            {
+                using (RegistryKey key = root.OpenSubKey(subKey))
+                {
+                    if (key != null)
+                    {
+                        foreach (string subkeyName in key.GetSubKeyNames())
+                        {
+                            using (RegistryKey subkey = key.OpenSubKey(subkeyName))
+                            {
+                                if (subkey != null)
+                                {
+                                    string displayName = subkey.GetValue("DisplayName") as string;
+                                    if (!string.IsNullOrEmpty(displayName))
+                                    {
+                                        programNames.Add(displayName);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Игнорируем ошибки доступа к отдельным ключам
+            }
+        }
+    }
+}
+```
+
+5. Сборка и запуск
+
+1. Нажмите F6 (сборка)
+2. Нажмите F5 (запуск)
+
+Особенности решения
+
+✅ Не требует прав администратора — все вызовы (WMI, NetworkInterface, чтение реестра) работают без повышения привилегий.
+
+✅ Использован WPF вместо WinForms
+
+✅ Для каждого устройства отображается минимум 3 свойства
+
+✅ Учтена ситуация с несколькими устройствами (например, несколько процессоров, дисков, видеокарт)
+
+✅ Сетевые адаптеры получены через NetworkInterface
+
+✅ Установленные программы читаются из реестра из обоих ключей (HKLM и HKCU, включая 32/64 бит)
+
+✅ Код устойчив к отсутствующим данным — везде есть проверка на null
+
+При запуске вы увидите 7 вкладок с полной информацией о вашей системе.
