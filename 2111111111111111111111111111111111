@@ -1,0 +1,262 @@
+Вот **полное готовое решение для WPF** с разделением на `MainWindow.xaml` и `MainWindow.xaml.cs`, как ты просил.
+
+Проект должен называться **LabWork21**.
+
+### 1. MainWindow.xaml (полный код)
+
+Замени всё содержимое файла **MainWindow.xaml** на это:
+
+```xml
+<Window x:Class="LabWork21.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Системный монитор - Лабораторная работа №21" 
+        Height="800" 
+        Width="1200"
+        WindowState="Maximized">
+
+    <Grid Margin="10">
+        <TabControl x:Name="MainTabControl" 
+                    TabStripPlacement="Top"
+                    BorderBrush="#CCCCCC"
+                    BorderThickness="1">
+            <!-- Вкладки будут добавляться в коде C# -->
+        </TabControl>
+    </Grid>
+</Window>
+```
+
+### 2. MainWindow.xaml.cs (полный код)
+
+Замени всё содержимое файла **MainWindow.xaml.cs** на этот код:
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Management;
+using System.Net.NetworkInformation;
+using System.Windows;
+using System.Windows.Controls;
+using Microsoft.Win32;
+
+namespace LabWork21
+{
+    public partial class MainWindow : Window
+    {
+        public MainWindow()
+        {
+            InitializeComponent();
+            CreateAllTabs();
+        }
+
+        private void CreateAllTabs()
+        {
+            // Добавляем вкладки оборудования через WMI
+            MainTabControl.Items.Add(CreateHardwareTab("Процессор", "Win32_Processor"));
+            MainTabControl.Items.Add(CreateHardwareTab("Видеокарта", "Win32_VideoController"));
+            MainTabControl.Items.Add(CreateHardwareTab("Материнская плата", "Win32_MotherboardDevice"));
+            MainTabControl.Items.Add(CreateHardwareTab("Физические диски", "Win32_DiskDrive"));
+            MainTabControl.Items.Add(CreateHardwareTab("Операционная система", "Win32_OperatingSystem"));
+
+            // Дополнительные вкладки
+            MainTabControl.Items.Add(CreateNetworkTab());
+            MainTabControl.Items.Add(CreateInstalledProgramsTab());
+        }
+
+        // Универсальная вкладка для WMI
+        private TabItem CreateHardwareTab(string title, string wmiClass)
+        {
+            TabItem tab = new TabItem { Header = title };
+
+            DataGrid dataGrid = new DataGrid
+            {
+                AutoGenerateColumns = true,
+                IsReadOnly = true,
+                AlternatingRowBackground = System.Windows.Media.Brushes.LightGray,
+                Margin = new Thickness(5),
+                HorizontalGridLinesBrush = System.Windows.Media.Brushes.LightGray,
+                VerticalGridLinesBrush = System.Windows.Media.Brushes.LightGray
+            };
+
+            try
+            {
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher($"SELECT * FROM {wmiClass}");
+                ManagementObjectCollection collection = searcher.Get();
+
+                var items = new List<Dictionary<string, object>>();
+
+                foreach (ManagementObject obj in collection)
+                {
+                    var dict = new Dictionary<string, object>();
+                    foreach (PropertyData prop in obj.Properties)
+                    {
+                        if (prop.Value != null && !string.IsNullOrEmpty(prop.Name))
+                        {
+                            dict[prop.Name] = prop.Value;
+                        }
+                    }
+                    if (dict.Count > 0)
+                        items.Add(dict);
+                }
+
+                dataGrid.ItemsSource = items;
+
+                if (items.Count == 0)
+                {
+                    dataGrid.ItemsSource = new[] { new { Сообщение = "Данные не найдены или доступ ограничен" } };
+                }
+            }
+            catch (Exception ex)
+            {
+                dataGrid.ItemsSource = new[] { new { Ошибка = $"Не удалось получить данные: {ex.Message}" } };
+            }
+
+            tab.Content = dataGrid;
+            return tab;
+        }
+
+        // Вкладка "Сеть"
+        private TabItem CreateNetworkTab()
+        {
+            TabItem tab = new TabItem { Header = "Сеть" };
+
+            TextBox textBox = new TextBox
+            {
+                IsReadOnly = true,
+                TextWrapping = TextWrapping.Wrap,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Margin = new Thickness(10),
+                FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                FontSize = 13,
+                Background = System.Windows.Media.Brushes.White
+            };
+
+            try
+            {
+                NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
+                string result = $"Найдено сетевых интерфейсов: {adapters.Length}\n\n";
+
+                foreach (NetworkInterface adapter in adapters)
+                {
+                    result += $"● Интерфейс: {adapter.Name}\n";
+                    result += $"   Описание: {adapter.Description}\n";
+                    result += $"   Тип: {adapter.NetworkInterfaceType}\n";
+                    result += $"   Статус: {adapter.OperationalStatus}\n";
+                    result += $"   Скорость: {adapter.Speed / 1_000_000} Мбит/с\n";
+                    result += $"   MAC-адрес: {adapter.GetPhysicalAddress()}\n";
+
+                    var ipProperties = adapter.GetIPProperties();
+                    foreach (var unicast in ipProperties.UnicastAddresses)
+                    {
+                        if (unicast.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        {
+                            result += $"   IPv4: {unicast.Address}\n";
+                        }
+                    }
+                    result += "────────────────────────────────────────────\n\n";
+                }
+
+                textBox.Text = result;
+            }
+            catch (Exception ex)
+            {
+                textBox.Text = "Ошибка при получении информации о сети:\n" + ex.Message;
+            }
+
+            tab.Content = textBox;
+            return tab;
+        }
+
+        // Вкладка "Установленные программы"
+        private TabItem CreateInstalledProgramsTab()
+        {
+            TabItem tab = new TabItem { Header = "Установленные программы" };
+
+            ListView listView = new ListView
+            {
+                Margin = new Thickness(10)
+            };
+
+            GridView gridView = new GridView();
+            gridView.Columns.Add(new GridViewColumn
+            {
+                Header = "Название программы",
+                Width = 900,
+                DisplayMemberBinding = new System.Windows.Data.Binding(".")
+            });
+
+            listView.View = gridView;
+
+            try
+            {
+                var programs = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                // Читаем программы из разных веток реестра
+                ReadUninstallKeys(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+                ReadUninstallKeys(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+                ReadUninstallKeys(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+
+                if (programs.Count == 0)
+                {
+                    listView.Items.Add("Программы не найдены или доступ к реестру ограничен");
+                }
+                else
+                {
+                    foreach (var program in programs)
+                    {
+                        if (!string.IsNullOrWhiteSpace(program))
+                            listView.Items.Add(program);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                listView.Items.Add($"Ошибка чтения реестра: {ex.Message}");
+            }
+
+            tab.Content = listView;
+            return tab;
+        }
+
+        private void ReadUninstallKeys(RegistryKey rootKey, string subKeyPath, SortedSet<string> programs)
+        {
+            using (RegistryKey key = rootKey.OpenSubKey(subKeyPath))
+            {
+                if (key == null) return;
+
+                foreach (string subKeyName in key.GetSubKeyNames())
+                {
+                    using (RegistryKey subKey = key.OpenSubKey(subKeyName))
+                    {
+                        if (subKey != null)
+                        {
+                            string displayName = subKey.GetValue("DisplayName") as string;
+                            if (!string.IsNullOrWhiteSpace(displayName))
+                            {
+                                programs.Add(displayName.Trim());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+### Как запустить:
+1. Создай проект **WPF App** с именем **LabWork21**
+2. Замени содержимое `MainWindow.xaml` на первый блок кода
+3. Замени содержимое `MainWindow.xaml.cs` на второй блок кода
+4. Нажми **F5**
+
+Программа запустится в развёрнутом окне с 7 вкладками.
+
+Если при компиляции будут ошибки — напиши, что именно пишет Visual Studio, я поправлю.
+
+Удачи с лабораторной!  
+Если нужно — могу добавить красивые заголовки, цвета или экспорт в текст.
