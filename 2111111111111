@@ -102,4 +102,103 @@ namespace LabWork21
             try
             {
                 var adapters = NetworkInterface.GetAllNetworkInterfaces();
-                string info
+                string info = "Найдено сетевых интерфейсов: " + adapters.Length + "\n\n";
+
+                foreach (var adapter in adapters)
+                {
+                    info += $"● {adapter.Name}\n";
+                    info += $"   Описание: {adapter.Description}\n";
+                    info += $"   Тип: {adapter.NetworkInterfaceType}\n";
+                    info += $"   Статус: {adapter.OperationalStatus}\n";
+                    info += $"   Скорость: {adapter.Speed / 1_000_000} Мбит/с\n";
+                    info += $"   MAC-адрес: {adapter.GetPhysicalAddress()}\n";
+
+                    var ipProps = adapter.GetIPProperties();
+                    foreach (var addr in ipProps.UnicastAddresses)
+                    {
+                        if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                            info += $"   IPv4: {addr.Address}\n";
+                    }
+                    info += "────────────────────────────────────\n\n";
+                }
+
+                textBox.Text = info;
+            }
+            catch (Exception ex)
+            {
+                textBox.Text = "Ошибка получения информации о сети:\n" + ex.Message;
+            }
+
+            tab.Content = textBox;
+            return tab;
+        }
+
+        // Вкладка "Установленные программы"
+        private TabItem CreateInstalledProgramsTab()
+        {
+            TabItem tab = new TabItem { Header = "Установленные программы" };
+
+            ListView listView = new ListView
+            {
+                Margin = new Thickness(10)
+            };
+
+            GridView gridView = new GridView();
+            gridView.Columns.Add(new GridViewColumn 
+            { 
+                Header = "Название установленной программы", 
+                Width = 800,
+                DisplayMemberBinding = new System.Windows.Data.Binding(".")
+            });
+            listView.View = gridView;
+
+            try
+            {
+                var programs = new SortedSet<string>();
+
+                // HKEY_CURRENT_USER
+                ReadUninstallKeys(Registry.CurrentUser, @"Software\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+
+                // HKEY_LOCAL_MACHINE (64-bit)
+                ReadUninstallKeys(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+
+                // HKEY_LOCAL_MACHINE (32-bit на 64-bit системе)
+                ReadUninstallKeys(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", programs);
+
+                foreach (var prog in programs)
+                {
+                    if (!string.IsNullOrWhiteSpace(prog))
+                        listView.Items.Add(prog);
+                }
+
+                if (listView.Items.Count == 0)
+                    listView.Items.Add("Программы не найдены (возможно, ограничение прав)");
+            }
+            catch (Exception ex)
+            {
+                listView.Items.Add("Ошибка чтения реестра: " + ex.Message);
+            }
+
+            tab.Content = listView;
+            return tab;
+        }
+
+        private void ReadUninstallKeys(RegistryKey root, string path, SortedSet<string> programs)
+        {
+            using (RegistryKey key = root.OpenSubKey(path))
+            {
+                if (key == null) return;
+
+                foreach (string subKeyName in key.GetSubKeyNames())
+                {
+                    using (RegistryKey subKey = key.OpenSubKey(subKeyName))
+                    {
+                        string displayName = subKey?.GetValue("DisplayName") as string;
+                        if (!string.IsNullOrEmpty(displayName))
+                            programs.Add(displayName.Trim());
+                    }
+                }
+            }
+        }
+    }
+}
