@@ -1,0 +1,210 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Management;
+using System.Net.NetworkInformation;
+using System.Windows.Forms;
+using Microsoft.Win32;
+
+namespace SystemMonitor
+{
+    public partial class Form1 : Form
+    {
+        public Form1()
+        {
+            InitializeComponent();
+            this.Text = "Системный монитор - Лабораторная №21";
+            this.WindowState = FormWindowState.Maximized;
+
+            // Создаём TabControl, который занимает всю форму
+            TabControl tabControl = new TabControl
+            {
+                Dock = DockStyle.Fill
+            };
+            this.Controls.Add(tabControl);
+
+            // Вкладки
+            tabControl.TabPages.Add(CreateHardwareTab("Процессор", "Win32_Processor"));
+            tabControl.TabPages.Add(CreateHardwareTab("Видеокарта", "Win32_VideoController"));
+            tabControl.TabPages.Add(CreateHardwareTab("Материнская плата", "Win32_MotherboardDevice"));
+            tabControl.TabPages.Add(CreateHardwareTab("Физические диски", "Win32_DiskDrive"));
+            tabControl.TabPages.Add(CreateHardwareTab("Операционная система", "Win32_OperatingSystem"));
+
+            tabControl.TabPages.Add(CreateNetworkTab());
+            tabControl.TabPages.Add(CreateInstalledProgramsTab());
+        }
+
+        // Универсальная вкладка для WMI (работает без админа в 99% случаев)
+        private TabPage CreateHardwareTab(string title, string wmiClass)
+        {
+            TabPage page = new TabPage(title);
+            DataGridView dgv = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                ReadOnly = true
+            };
+            page.Controls.Add(dgv);
+
+            try
+            {
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher($"SELECT * FROM {wmiClass}");
+                ManagementObjectCollection collection = searcher.Get();
+
+                if (collection.Count == 0)
+                {
+                    dgv.Columns.Add("Info", "Информация");
+                    dgv.Rows.Add("Нет данных или доступ запрещён политикой");
+                    return page;
+                }
+
+                // Берём свойства из первого объекта, чтобы создать колонки
+                List<string> properties = new List<string>();
+                foreach (ManagementObject obj in collection)
+                {
+                    foreach (PropertyData prop in obj.Properties)
+                    {
+                        if (!properties.Contains(prop.Name) && prop.Value != null)
+                            properties.Add(prop.Name);
+                    }
+                    break; // достаточно первого
+                }
+
+                foreach (string prop in properties)
+                    dgv.Columns.Add(prop, prop);
+
+                // Заполняем строки (поддержка нескольких устройств)
+                foreach (ManagementObject obj in collection)
+                {
+                    List<object> row = new List<object>();
+                    foreach (string prop in properties)
+                    {
+                        row.Add(obj[prop] ?? "");
+                    }
+                    dgv.Rows.Add(row.ToArray());
+                }
+            }
+            catch (Exception ex)
+            {
+                dgv.Columns.Add("Error", "Ошибка");
+                dgv.Rows.Add(ex.Message);
+            }
+
+            return page;
+        }
+
+        // Вкладка "Сеть"
+        private TabPage CreateNetworkTab()
+        {
+            TabPage page = new TabPage("Сеть");
+            TextBox tb = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                ReadOnly = true,
+                Font = new Font("Consolas", 10)
+            };
+            page.Controls.Add(tb);
+
+            try
+            {
+                NetworkInterface[] adapters = NetworkInterface.GetAllNetworkInterfaces();
+
+                string info = "Сетевые интерфейсы:\n\n";
+                foreach (NetworkInterface adapter in adapters)
+                {
+                    info += $"Имя: {adapter.Name}\n";
+                    info += $"Описание: {adapter.Description}\n";
+                    info += $"Тип: {adapter.NetworkInterfaceType}\n";
+                    info += $"Статус: {adapter.OperationalStatus}\n";
+                    info += $"Скорость: {adapter.Speed / 1000000} Мбит/с\n";
+                    info += $"MAC: {adapter.GetPhysicalAddress()}\n";
+
+                    var props = adapter.GetIPProperties();
+                    foreach (var addr in props.UnicastAddresses)
+                    {
+                        info += $"   IP: {addr.Address}\n";
+                    }
+                    info += "----------------------------------------\n\n";
+                }
+
+                tb.Text = info;
+            }
+            catch (Exception ex)
+            {
+                tb.Text = "Ошибка: " + ex.Message;
+            }
+
+            return page;
+        }
+
+        // Вкладка "Установленные программы"
+        private TabPage CreateInstalledProgramsTab()
+        {
+            TabPage page = new TabPage("Установленные программы");
+            ListView lv = new ListView
+            {
+                Dock = DockStyle.Fill,
+                View = View.Details,
+                FullRowSelect = true,
+                GridLines = true
+            };
+            lv.Columns.Add("Название программы", 400);
+            page.Controls.Add(lv);
+
+            try
+            {
+                var programs = new HashSet<string>(); // чтобы не было дублей
+
+                // HKEY_CURRENT_USER
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall"))
+                {
+                    if (key != null) ReadUninstallKeys(key, programs);
+                }
+
+                // HKEY_LOCAL_MACHINE (32-bit и 64-bit)
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"))
+                {
+                    if (key != null) ReadUninstallKeys(key, programs);
+                }
+
+                using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"))
+                {
+                    if (key != null) ReadUninstallKeys(key, programs);
+                }
+
+                foreach (string prog in programs)
+                {
+                    if (!string.IsNullOrWhiteSpace(prog))
+                        lv.Items.Add(prog);
+                }
+
+                if (lv.Items.Count == 0)
+                    lv.Items.Add("Программы не найдены или доступ ограничен");
+            }
+            catch (Exception ex)
+            {
+                lv.Items.Add("Ошибка чтения реестра: " + ex.Message);
+            }
+
+            return page;
+        }
+
+        private void ReadUninstallKeys(RegistryKey key, HashSet<string> programs)
+        {
+            foreach (string subKeyName in key.GetSubKeyNames())
+            {
+                using (RegistryKey subKey = key.OpenSubKey(subKeyName))
+                {
+                    if (subKey != null)
+                    {
+                        string displayName = subKey.GetValue("DisplayName") as string;
+                        if (!string.IsNullOrEmpty(displayName))
+                            programs.Add(displayName.Trim());
+                    }
+                }
+            }
+        }
+    }
+}
