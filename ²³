@@ -1,10 +1,10 @@
 using System;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace ImageColorInverter
 {
@@ -17,53 +17,44 @@ namespace ImageColorInverter
 
         static void Main(string[] args)
         {
-            Console.WriteLine("=== Лабораторная работа №23: Инвертация цветов изображений ===\n");
+            Console.WriteLine("=== Лабораторная работа №23: Инвертация цветов ===\n");
 
-            Console.Write("Введите путь к папке с изображениями: ");
+            Console.Write("Введите путь к папке: ");
             string inputFolder = Console.ReadLine();
 
             if (!Directory.Exists(inputFolder))
             {
-                Console.WriteLine("Ошибка: указанная папка не существует!");
+                Console.WriteLine("Папка не существует!");
                 return;
             }
 
-            string outputFolder = Path.Combine(Path.GetDirectoryName(inputFolder), "InvertedImages");
+            string outputFolder = Path.Combine(inputFolder, "InvertedImages");
             Directory.CreateDirectory(outputFolder);
 
-            // Получение всех изображений
-            string[] imageExtensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
-            var allFiles = imageExtensions
-                .SelectMany(ext => Directory.GetFiles(inputFolder, ext, SearchOption.TopDirectoryOnly))
+            // Все изображения
+            string[] extensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
+            var files = extensions
+                .SelectMany(ext => Directory.GetFiles(inputFolder, ext))
                 .ToArray();
 
-            // ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА: отфильтровываем проблемные файлы
-            var validFiles = allFiles.Where(file => IsValidImage(file)).ToArray();
-            
-            totalCount = validFiles.Length;
-            int invalidCount = allFiles.Length - totalCount;
+            totalCount = files.Length;
 
             if (totalCount == 0)
             {
-                Console.WriteLine("Не найдено корректных изображений для обработки!");
-                if (invalidCount > 0)
-                    Console.WriteLine($"Обнаружено повреждённых файлов: {invalidCount}");
+                Console.WriteLine("Нет изображений!");
                 return;
             }
 
-            Console.WriteLine($"\nНайдено корректных изображений: {totalCount}");
-            if (invalidCount > 0)
-                Console.WriteLine($"Пропущено повреждённых файлов: {invalidCount}");
-            
-            Console.WriteLine("Начинается обработка...\n");
+            Console.WriteLine($"Найдено: {totalCount} файлов\n");
 
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
-            Parallel.ForEach(validFiles, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, imagePath =>
+            // Многопоточная обработка
+            Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, filePath =>
             {
                 try
                 {
-                    InvertImageColors(imagePath, outputFolder);
+                    InvertImage(filePath, outputFolder);
                     Interlocked.Increment(ref processedCount);
                 }
                 catch (Exception ex)
@@ -71,84 +62,55 @@ namespace ImageColorInverter
                     Interlocked.Increment(ref errorCount);
                     lock (progressLock)
                     {
-                        Console.WriteLine($"\nОшибка при обработке {Path.GetFileName(imagePath)}: {ex.Message}");
+                        Console.WriteLine($"\nОшибка: {Path.GetFileName(filePath)} - {ex.Message}");
                     }
                 }
                 finally
                 {
                     lock (progressLock)
                     {
-                        ShowProgressBar(processedCount + errorCount, totalCount);
+                        ShowProgress(processedCount + errorCount, totalCount);
                     }
                 }
             });
 
             watch.Stop();
-            Console.WriteLine($"\n\n=== Результат ===");
-            Console.WriteLine($"✓ Успешно: {processedCount}");
-            Console.WriteLine($"✗ Ошибок: {errorCount}");
-            Console.WriteLine($"Время: {watch.Elapsed.Seconds} секунд");
+            Console.WriteLine($"\n\nГотово! Обработано: {processedCount}, Ошибок: {errorCount}");
+            Console.WriteLine($"Время: {watch.Elapsed.Seconds} сек");
+            Console.WriteLine($"Папка: {outputFolder}");
         }
 
-        /// <summary>
-        /// Проверяет, является ли файл корректным изображением
-        /// </summary>
-        static bool IsValidImage(string filePath)
+        static void InvertImage(string inputPath, string outputFolder)
         {
-            try
+            using (var image = Image.Load<Rgba32>(inputPath))
             {
-                using (var bitmap = new Bitmap(filePath))
+                // Инвертируем каждый пиксель
+                for (int y = 0; y < image.Height; y++)
                 {
-                    return bitmap.Width > 0 && bitmap.Height > 0;
-                }
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        static void InvertImageColors(string inputPath, string outputFolder)
-        {
-            using (var bitmap = new Bitmap(inputPath))
-            {
-                for (int y = 0; y < bitmap.Height; y++)
-                {
-                    for (int x = 0; x < bitmap.Width; x++)
+                    for (int x = 0; x < image.Width; x++)
                     {
-                        Color pixel = bitmap.GetPixel(x, y);
-                        bitmap.SetPixel(x, y, Color.FromArgb(
-                            pixel.A,
-                            255 - pixel.R,
-                            255 - pixel.G,
-                            255 - pixel.B
-                        ));
+                        var pixel = image[x, y];
+                        image[x, y] = new Rgba32(
+                            (byte)(255 - pixel.R),
+                            (byte)(255 - pixel.G),
+                            (byte)(255 - pixel.B),
+                            pixel.A
+                        );
                     }
                 }
 
-                string outputPath = Path.Combine(outputFolder, 
-                    Path.GetFileNameWithoutExtension(inputPath) + "_inverted" + Path.GetExtension(inputPath));
-                
-                // Определяем формат сохранения
-                string ext = Path.GetExtension(inputPath).ToLower();
-                if (ext == ".jpg" || ext == ".jpeg")
-                    bitmap.Save(outputPath, ImageFormat.Jpeg);
-                else if (ext == ".png")
-                    bitmap.Save(outputPath, ImageFormat.Png);
-                else if (ext == ".bmp")
-                    bitmap.Save(outputPath, ImageFormat.Bmp);
-                else
-                    bitmap.Save(outputPath, ImageFormat.Png);
+                string outputPath = Path.Combine(outputFolder, Path.GetFileName(inputPath));
+                image.Save(outputPath);
             }
         }
 
-        static void ShowProgressBar(int current, int total)
+        static void ShowProgress(int current, int total)
         {
-            int barLength = 50;
+            int barLen = 40;
             double percent = (double)current / total;
-            int filledLength = (int)(barLength * percent);
-            string progressBar = new string('█', filledLength) + new string('░', barLength - filledLength);
-            Console.Write($"\rПрогресс: [{progressBar}] {current}/{total} ({percent * 100:F1}%)");
+            int filled = (int)(barLen * percent);
+            string bar = new string('=', filled) + new string('-', barLen - filled);
+            Console.Write($"\r[{bar}] {current}/{total} ({percent * 100:F1}%)");
         }
     }
 }
