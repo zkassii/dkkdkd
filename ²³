@@ -1,0 +1,230 @@
+Вот полная реализация консольного приложения на C# согласно вашей лабораторной работе.
+
+1. Основной код программы (Program.cs)
+
+```csharp
+using System;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ImageColorInverter
+{
+    class Program
+    {
+        static int processedCount = 0;
+        static int totalCount = 0;
+        static readonly object progressLock = new object();
+
+        static void Main(string[] args)
+        {
+            Console.WriteLine("=== Лабораторная работа №23: Инвертация цветов изображений ===\n");
+
+            // Ввод пути к папке с изображениями
+            Console.Write("Введите путь к папке с изображениями: ");
+            string inputFolder = Console.ReadLine();
+
+            if (!Directory.Exists(inputFolder))
+            {
+                Console.WriteLine("Ошибка: указанная папка не существует!");
+                return;
+            }
+
+            // Создание папки для результатов
+            string outputFolder = Path.Combine(Path.GetDirectoryName(inputFolder), "InvertedImages");
+            Directory.CreateDirectory(outputFolder);
+
+            // Получение всех изображений (поддерживаемые форматы)
+            string[] imageExtensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
+            var imageFiles = imageExtensions
+                .SelectMany(ext => Directory.GetFiles(inputFolder, ext, SearchOption.TopDirectoryOnly))
+                .ToArray();
+
+            totalCount = imageFiles.Length;
+
+            if (totalCount == 0)
+            {
+                Console.WriteLine("В указанной папке не найдено изображений.");
+                return;
+            }
+
+            Console.WriteLine($"\nНайдено изображений: {totalCount}");
+            Console.WriteLine("Начинается обработка...\n");
+
+            // Замер времени выполнения
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Многопоточная обработка с помощью Parallel.ForEach
+            Parallel.ForEach(imageFiles, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, imagePath =>
+            {
+                try
+                {
+                    InvertImageColors(imagePath, outputFolder);
+                    
+                    // Потокобезопасное увеличение счетчика
+                    Interlocked.Increment(ref processedCount);
+                    
+                    // Синхронизированный вывод прогресс-бара
+                    lock (progressLock)
+                    {
+                        ShowProgressBar(processedCount, totalCount);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lock (progressLock)
+                    {
+                        Console.WriteLine($"\nОшибка при обработке {Path.GetFileName(imagePath)}: {ex.Message}");
+                    }
+                }
+            });
+
+            watch.Stop();
+            Console.WriteLine($"\n\nОбработка завершена за {watch.Elapsed.Seconds} секунд.");
+            Console.WriteLine($"Результаты сохранены в: {outputFolder}");
+        }
+
+        /// <summary>
+        /// Инвертирует цвета изображения и сохраняет результат
+        /// </summary>
+        static void InvertImageColors(string inputPath, string outputFolder)
+        {
+            using (Bitmap bitmap = new Bitmap(inputPath))
+            {
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        Color pixel = bitmap.GetPixel(x, y);
+                        Color invertedColor = Color.FromArgb(
+                            pixel.A,
+                            255 - pixel.R,
+                            255 - pixel.G,
+                            255 - pixel.B
+                        );
+                        bitmap.SetPixel(x, y, invertedColor);
+                    }
+                }
+
+                string outputPath = Path.Combine(outputFolder, Path.GetFileName(inputPath));
+                bitmap.Save(outputPath);
+            }
+        }
+
+        /// <summary>
+        /// Отображает прогресс-бар в консоли
+        /// </summary>
+        static void ShowProgressBar(int current, int total)
+        {
+            int barLength = 50;
+            double percent = (double)current / total;
+            int filledLength = (int)(barLength * percent);
+
+            string progressBar = new string('█', filledLength) + new string('░', barLength - filledLength);
+            Console.Write($"\rПрогресс: [{progressBar}] {current}/{total} ({percent * 100:F1}%)");
+        }
+    }
+}
+```
+
+2. Файл проекта (.csproj)
+
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Drawing.Common" Version="7.0.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+3. Ответы на контрольные вопросы
+
+Вопрос 1: Какие методы предоставляет класс Parallel для обработки данных?
+
+Ответ:
+
+Класс Parallel из пространства имен System.Threading.Tasks предоставляет следующие основные методы:
+
+Метод Описание
+Parallel.For() Параллельный аналог цикла for — итерации выполняются параллельно на нескольких потоках
+Parallel.ForEach() Параллельный аналог цикла foreach — для параллельной обработки коллекций
+Parallel.ForEachAsync() Асинхронная версия ForEach (для асинхронных операций)
+Parallel.ForAsync() Асинхронная версия For
+Parallel.Invoke() Выполняет несколько делегатов (действий) параллельно
+
+Пример использования (из лабораторной работы):
+
+```csharp
+Parallel.ForEach(imageFiles, imagePath => 
+{
+    InvertImageColors(imagePath, outputFolder);
+});
+```
+
+---
+
+Вопрос 2: Зачем необходимо синхронизировать потоки и использовать потокобезопасные операции?
+
+Ответ:
+
+Синхронизация потоков необходима по следующим причинам:
+
+1. Предотвращение состояния гонки (Race Condition)
+
+· Когда несколько потоков одновременно обращаются к общим данным, результат может быть непредсказуемым.
+
+2. Обеспечение целостности данных
+
+· Без синхронизации один поток может прочитать данные, которые другой поток ещё не закончил изменять.
+
+3. Пример проблемы (без синхронизации):
+
+```csharp
+// Переменная shared = 0
+// Поток A: shared++  (читает 0, планирует записать 1)
+// Поток B: shared++  (читает 0, планирует записать 1)
+// Результат: shared = 1 (а должно быть 2!)
+```
+
+4. Потокобезопасные операции в лабораторной работе:
+
+```csharp
+// Interlocked.Increment — атомарная операция (аппаратно-обеспеченная)
+Interlocked.Increment(ref processedCount);  // ✅ Безопасно
+
+// lock — блокировка критической секции
+lock (progressLock)  // ✅ Безопасно
+{
+    ShowProgressBar(processedCount, totalCount);
+}
+```
+
+Основные средства синхронизации в C#:
+
+· lock — монопольная блокировка
+· Interlocked — атомарные операции
+· Monitor, Mutex, Semaphore
+· Task.WhenAll() для задач
+
+4. Вывод для отчета
+
+В ходе выполнения лабораторной работы было разработано многопоточное консольное приложение на C# для инвертации цветов изображений.
+
+С помощью библиотеки System.Drawing.Common и метода Parallel.ForEach была реализована параллельная обработка нескольких файлов. Для корректного отображения прогресс-бара использовались потокобезопасная операция Interlocked.Increment и синхронизация через lock.
+
+Многопоточная обработка позволяет значительно ускорить работу при наличии многоядерного процессора, так как несколько изображений обрабатываются одновременно. Однако при работе с общими ресурсами (счетчик, вывод в консоль) требуется синхронизация для предотвращения конфликтов и некорректных результатов.
+
+---
+
+Примечание: Для работы с System.Drawing.Common в .NET 6+ на Linux/macOS может потребоваться установка libgdiplus. В Windows проблем не возникает.
