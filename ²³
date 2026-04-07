@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,91 +8,134 @@ using System.Threading.Tasks;
 
 class Program
 {
-    private static readonly object _lock = new object(); // Для синхронизации вывода в консоль
+    private static readonly object _lock = new object();
 
     static void Main(string[] args)
     {
-        Console.WriteLine("=== Инвертор изображений (многопоточный) ===\n");
+        Console.WriteLine("=== Многопоточный инвертор JPG (исправленная версия 2) ===\n");
 
-        Console.Write("Введите путь к папке с изображениями: ");
-        string sourceFolder = Console.ReadLine()?.Trim();
+        Console.Write("Введите путь к папке с JPG изображениями: ");
+        string? sourceFolder = Console.ReadLine()?.Trim();
 
         if (string.IsNullOrEmpty(sourceFolder) || !Directory.Exists(sourceFolder))
         {
-            Console.WriteLine("Ошибка: указанная папка не существует!");
+            Console.WriteLine("Ошибка: папка не найдена!");
+            Console.ReadKey();
             return;
         }
 
-        // Создаём папку для результата
         string outputFolder = Path.Combine(sourceFolder, "Inverted_Images");
         Directory.CreateDirectory(outputFolder);
 
-        // Получаем все изображения
-        string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff" };
-        var files = Directory.GetFiles(sourceFolder)
-                             .Where(f => imageExtensions.Contains(Path.GetExtension(f).ToLower()))
-                             .ToArray();
+        var imageFiles = Directory.GetFiles(sourceFolder, "*.jpg", SearchOption.TopDirectoryOnly)
+                                  .Concat(Directory.GetFiles(sourceFolder, "*.jpeg", SearchOption.TopDirectoryOnly))
+                                  .ToArray();
 
-        if (files.Length == 0)
+        if (imageFiles.Length == 0)
         {
-            Console.WriteLine("В папке не найдено изображений!");
+            Console.WriteLine("JPG-файлы не найдены в папке.");
+            Console.ReadKey();
             return;
         }
 
-        Console.WriteLine($"Найдено изображений: {files.Length}");
-        Console.WriteLine($"Результат будет сохранён в: {outputFolder}\n");
+        Console.WriteLine($"Найдено JPG изображений: {imageFiles.Length}");
+        Console.WriteLine($"Результат будет в: {outputFolder}\n");
 
-        int processed = 0;           // Счётчик обработанных файлов
-        int total = files.Length;
+        int processed = 0;
+        int total = imageFiles.Length;
+        int errors = 0;
 
-        // Многопоточная обработка
-        Parallel.ForEach(files, file =>
+        var parallelOptions = new ParallelOptions
         {
+            MaxDegreeOfParallelism = 4   // Уменьшил до 4 — GDI+ не любит много потоков одновременно
+        };
+
+        Parallel.ForEach(imageFiles, parallelOptions, file =>
+        {
+            string fileName = Path.GetFileName(file);
+            string outputPath = Path.Combine(outputFolder, fileName);
+
             try
             {
-                string fileName = Path.GetFileName(file);
-                string outputPath = Path.Combine(outputFolder, fileName);
-
-                using (Bitmap bitmap = new Bitmap(file))
+                using (Bitmap original = new Bitmap(file))
                 {
-                    InvertImageColors(bitmap);
-                    bitmap.Save(outputPath);
+                    using (Bitmap inverted = InvertBitmapFast(original))
+                    {
+                        // Сохраняем строго как JPEG с параметрами качества
+                        var encoder = ImageCodecInfo.GetImageEncoders()
+                            .FirstOrDefault(c => c.FormatID == ImageFormat.Jpeg.Guid);
+
+                        var encoderParams = new EncoderParameters(1);
+                        encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, 90L); // качество 90%
+
+                        if (encoder != null)
+                            inverted.Save(outputPath, encoder, encoderParams);
+                        else
+                            inverted.Save(outputPath, ImageFormat.Jpeg);
+                    }
                 }
 
-                // Увеличиваем счётчик потокобезопасно
                 Interlocked.Increment(ref processed);
-
-                // Показываем прогресс (синхронизировано)
                 ShowProgress(processed, total, fileName);
             }
             catch (Exception ex)
             {
+                Interlocked.Increment(ref errors);
                 lock (_lock)
                 {
-                    Console.WriteLine($"\nОшибка при обработке {Path.GetFileName(file)}: {ex.Message}");
+                    Console.WriteLine($"\nОшибка с файлом: {fileName}");
+                    Console.WriteLine($"   Причина: {ex.Message}");
+                    // Раскомментируй следующую строку, если нужно увидеть полный стек:
+                    // Console.WriteLine($"   Stack: {ex.StackTrace}");
                 }
             }
         });
 
-        Console.WriteLine("\n\nОбработка завершена! Все изображения инвертированы.");
+        Console.WriteLine($"\n\nОбработка завершена!");
+        Console.WriteLine($"Успешно обработано: {processed} из {total}");
+        if (errors > 0) Console.WriteLine($"Ошибок: {errors}");
+
         Console.ReadKey();
     }
 
-    // Функция инверсии цветов
-    static void InvertImageColors(Bitmap bitmap)
+    // Быстрая инверсия через LockBits
+    static Bitmap InvertBitmapFast(Bitmap source)
     {
-        for (int x = 0; x < bitmap.Width; x++)
+        Bitmap result = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
+
+        Rectangle rect = new Rectangle(0, 0, source.Width, source.Height);
+
+        BitmapData sourceData = source.LockBits(rect, ImageLockMode.ReadOnly, source.PixelFormat);
+        BitmapData resultData = result.LockBits(rect, ImageLockMode.WriteOnly, result.PixelFormat);
+
+        unsafe
         {
-            for (int y = 0; y < bitmap.Height; y++)
+            byte* src = (byte*)sourceData.Scan0;
+            byte* dst = (byte*)resultData.Scan0;
+
+            int srcStride = sourceData.Stride;
+            int dstStride = resultData.Stride;
+
+            for (int y = 0; y < source.Height; y++)
             {
-                Color pixel = bitmap.GetPixel(x, y);
-                Color inverted = Color.FromArgb(255 - pixel.R, 255 - pixel.G, 255 - pixel.B);
-                bitmap.SetPixel(x, y, inverted);
+                byte* srcRow = src + y * srcStride;
+                byte* dstRow = dst + y * dstStride;
+
+                for (int x = 0; x < source.Width; x++)
+                {
+                    int offset = x * 3; // 24bpp = 3 байта на пиксель
+                    dstRow[offset + 2] = (byte)(255 - srcRow[offset + 2]); // R
+                    dstRow[offset + 1] = (byte)(255 - srcRow[offset + 1]); // G
+                    dstRow[offset + 0] = (byte)(255 - srcRow[offset + 0]); // B
+                }
             }
         }
+
+        source.UnlockBits(sourceData);
+        result.UnlockBits(resultData);
+        return result;
     }
 
-    // Вывод прогресс-бара
     static void ShowProgress(int processed, int total, string currentFile)
     {
         lock (_lock)
@@ -102,8 +146,7 @@ class Program
 
             string bar = "[" + new string('█', filled) + new string('░', barWidth - filled) + "]";
 
-            // Перезаписываем одну строку
-            Console.Write($"\rОбработано: {processed}/{total} ({percent:F1}%) {bar}  | Сейчас: {currentFile}");
+            Console.Write($"\rОбработано: {processed}/{total} ({percent:F1}%) {bar} | {currentFile}");
         }
     }
 }
