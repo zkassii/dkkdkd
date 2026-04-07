@@ -1,116 +1,109 @@
 using System;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.PixelFormats;
 
-namespace ImageColorInverter
+class Program
 {
-    class Program
+    private static readonly object _lock = new object(); // Для синхронизации вывода в консоль
+
+    static void Main(string[] args)
     {
-        static int processedCount = 0;
-        static int totalCount = 0;
-        static int errorCount = 0;
-        static readonly object progressLock = new object();
+        Console.WriteLine("=== Инвертор изображений (многопоточный) ===\n");
 
-        static void Main(string[] args)
+        Console.Write("Введите путь к папке с изображениями: ");
+        string sourceFolder = Console.ReadLine()?.Trim();
+
+        if (string.IsNullOrEmpty(sourceFolder) || !Directory.Exists(sourceFolder))
         {
-            Console.WriteLine("=== Лабораторная работа №23: Инвертация цветов ===\n");
-
-            Console.Write("Введите путь к папке: ");
-            string inputFolder = Console.ReadLine();
-
-            if (!Directory.Exists(inputFolder))
-            {
-                Console.WriteLine("Папка не существует!");
-                return;
-            }
-
-            string outputFolder = Path.Combine(inputFolder, "InvertedImages");
-            Directory.CreateDirectory(outputFolder);
-
-            // Все изображения
-            string[] extensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
-            var files = extensions
-                .SelectMany(ext => Directory.GetFiles(inputFolder, ext))
-                .ToArray();
-
-            totalCount = files.Length;
-
-            if (totalCount == 0)
-            {
-                Console.WriteLine("Нет изображений!");
-                return;
-            }
-
-            Console.WriteLine($"Найдено: {totalCount} файлов\n");
-
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-
-            // Многопоточная обработка
-            Parallel.ForEach(files, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, filePath =>
-            {
-                try
-                {
-                    InvertImage(filePath, outputFolder);
-                    Interlocked.Increment(ref processedCount);
-                }
-                catch (Exception ex)
-                {
-                    Interlocked.Increment(ref errorCount);
-                    lock (progressLock)
-                    {
-                        Console.WriteLine($"\nОшибка: {Path.GetFileName(filePath)} - {ex.Message}");
-                    }
-                }
-                finally
-                {
-                    lock (progressLock)
-                    {
-                        ShowProgress(processedCount + errorCount, totalCount);
-                    }
-                }
-            });
-
-            watch.Stop();
-            Console.WriteLine($"\n\nГотово! Обработано: {processedCount}, Ошибок: {errorCount}");
-            Console.WriteLine($"Время: {watch.Elapsed.Seconds} сек");
-            Console.WriteLine($"Папка: {outputFolder}");
+            Console.WriteLine("Ошибка: указанная папка не существует!");
+            return;
         }
 
-        static void InvertImage(string inputPath, string outputFolder)
-        {
-            using (var image = Image.Load<Rgba32>(inputPath))
-            {
-                // Инвертируем каждый пиксель
-                for (int y = 0; y < image.Height; y++)
-                {
-                    for (int x = 0; x < image.Width; x++)
-                    {
-                        var pixel = image[x, y];
-                        image[x, y] = new Rgba32(
-                            (byte)(255 - pixel.R),
-                            (byte)(255 - pixel.G),
-                            (byte)(255 - pixel.B),
-                            pixel.A
-                        );
-                    }
-                }
+        // Создаём папку для результата
+        string outputFolder = Path.Combine(sourceFolder, "Inverted_Images");
+        Directory.CreateDirectory(outputFolder);
 
-                string outputPath = Path.Combine(outputFolder, Path.GetFileName(inputPath));
-                image.Save(outputPath);
-            }
+        // Получаем все изображения
+        string[] imageExtensions = { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tiff" };
+        var files = Directory.GetFiles(sourceFolder)
+                             .Where(f => imageExtensions.Contains(Path.GetExtension(f).ToLower()))
+                             .ToArray();
+
+        if (files.Length == 0)
+        {
+            Console.WriteLine("В папке не найдено изображений!");
+            return;
         }
 
-        static void ShowProgress(int current, int total)
+        Console.WriteLine($"Найдено изображений: {files.Length}");
+        Console.WriteLine($"Результат будет сохранён в: {outputFolder}\n");
+
+        int processed = 0;           // Счётчик обработанных файлов
+        int total = files.Length;
+
+        // Многопоточная обработка
+        Parallel.ForEach(files, file =>
         {
-            int barLen = 40;
-            double percent = (double)current / total;
-            int filled = (int)(barLen * percent);
-            string bar = new string('=', filled) + new string('-', barLen - filled);
-            Console.Write($"\r[{bar}] {current}/{total} ({percent * 100:F1}%)");
+            try
+            {
+                string fileName = Path.GetFileName(file);
+                string outputPath = Path.Combine(outputFolder, fileName);
+
+                using (Bitmap bitmap = new Bitmap(file))
+                {
+                    InvertImageColors(bitmap);
+                    bitmap.Save(outputPath);
+                }
+
+                // Увеличиваем счётчик потокобезопасно
+                Interlocked.Increment(ref processed);
+
+                // Показываем прогресс (синхронизировано)
+                ShowProgress(processed, total, fileName);
+            }
+            catch (Exception ex)
+            {
+                lock (_lock)
+                {
+                    Console.WriteLine($"\nОшибка при обработке {Path.GetFileName(file)}: {ex.Message}");
+                }
+            }
+        });
+
+        Console.WriteLine("\n\nОбработка завершена! Все изображения инвертированы.");
+        Console.ReadKey();
+    }
+
+    // Функция инверсии цветов
+    static void InvertImageColors(Bitmap bitmap)
+    {
+        for (int x = 0; x < bitmap.Width; x++)
+        {
+            for (int y = 0; y < bitmap.Height; y++)
+            {
+                Color pixel = bitmap.GetPixel(x, y);
+                Color inverted = Color.FromArgb(255 - pixel.R, 255 - pixel.G, 255 - pixel.B);
+                bitmap.SetPixel(x, y, inverted);
+            }
+        }
+    }
+
+    // Вывод прогресс-бара
+    static void ShowProgress(int processed, int total, string currentFile)
+    {
+        lock (_lock)
+        {
+            double percent = (double)processed / total * 100;
+            int barWidth = 30;
+            int filled = (int)(percent / 100 * barWidth);
+
+            string bar = "[" + new string('█', filled) + new string('░', barWidth - filled) + "]";
+
+            // Перезаписываем одну строку
+            Console.Write($"\rОбработано: {processed}/{total} ({percent:F1}%) {bar}  | Сейчас: {currentFile}");
         }
     }
 }
