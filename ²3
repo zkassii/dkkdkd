@@ -1,0 +1,173 @@
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace ImageColorInverter
+{
+    class Program
+    {
+        static int processedCount = 0;
+        static int totalCount = 0;
+        static int errorCount = 0;
+        static readonly object progressLock = new object();
+
+        static void Main(string[] args)
+        {
+            Console.WriteLine("=== Лабораторная работа №23: Инвертация цветов изображений ===\n");
+
+            // Ввод пути к папке с изображениями
+            Console.Write("Введите путь к папке с изображениями: ");
+            string inputFolder = Console.ReadLine();
+
+            if (!Directory.Exists(inputFolder))
+            {
+                Console.WriteLine("Ошибка: указанная папка не существует!");
+                return;
+            }
+
+            // Создание папки для результатов
+            string outputFolder = Path.Combine(Path.GetDirectoryName(inputFolder), "InvertedImages");
+            Directory.CreateDirectory(outputFolder);
+
+            // Получение всех изображений (поддерживаемые форматы)
+            string[] imageExtensions = { "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif" };
+            var imageFiles = imageExtensions
+                .SelectMany(ext => Directory.GetFiles(inputFolder, ext, SearchOption.TopDirectoryOnly))
+                .ToArray();
+
+            totalCount = imageFiles.Length;
+
+            if (totalCount == 0)
+            {
+                Console.WriteLine("В указанной папке не найдено изображений.");
+                return;
+            }
+
+            Console.WriteLine($"\nНайдено изображений: {totalCount}");
+            Console.WriteLine("Начинается обработка...\n");
+
+            // Замер времени выполнения
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            // Многопоточная обработка с помощью Parallel.ForEach
+            Parallel.ForEach(imageFiles, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, imagePath =>
+            {
+                try
+                {
+                    InvertImageColors(imagePath, outputFolder);
+                    
+                    // Потокобезопасное увеличение счетчика
+                    Interlocked.Increment(ref processedCount);
+                }
+                catch (Exception ex)
+                {
+                    Interlocked.Increment(ref errorCount);
+                    lock (progressLock)
+                    {
+                        Console.WriteLine($"\nОшибка при обработке {Path.GetFileName(imagePath)}: {ex.Message}");
+                    }
+                }
+                finally
+                {
+                    // Синхронизированный вывод прогресс-бара
+                    lock (progressLock)
+                    {
+                        ShowProgressBar(processedCount + errorCount, totalCount);
+                    }
+                }
+            });
+
+            watch.Stop();
+            Console.WriteLine($"\n\n=== Обработка завершена ===");
+            Console.WriteLine($"✓ Успешно обработано: {processedCount}");
+            Console.WriteLine($"✗ Ошибок: {errorCount}");
+            Console.WriteLine($"Время выполнения: {watch.Elapsed.Seconds} секунд");
+            Console.WriteLine($"Результаты сохранены в: {outputFolder}");
+        }
+
+        /// <summary>
+        /// Инвертирует цвета изображения и сохраняет результат
+        /// </summary>
+        static void InvertImageColors(string inputPath, string outputFolder)
+        {
+            // Проверяем существование файла
+            if (!File.Exists(inputPath))
+            {
+                throw new FileNotFoundException($"Файл не найден: {inputPath}");
+            }
+
+            Bitmap bitmap = null;
+            try
+            {
+                // Загружаем изображение с проверкой
+                bitmap = new Bitmap(inputPath);
+                
+                // Проверяем, что изображение не пустое
+                if (bitmap.Width == 0 || bitmap.Height == 0)
+                {
+                    throw new InvalidOperationException("Изображение имеет нулевой размер");
+                }
+
+                // Инвертируем цвета
+                for (int y = 0; y < bitmap.Height; y++)
+                {
+                    for (int x = 0; x < bitmap.Width; x++)
+                    {
+                        Color pixel = bitmap.GetPixel(x, y);
+                        Color invertedColor = Color.FromArgb(
+                            pixel.A,
+                            255 - pixel.R,
+                            255 - pixel.G,
+                            255 - pixel.B
+                        );
+                        bitmap.SetPixel(x, y, invertedColor);
+                    }
+                }
+
+                // Сохраняем результат
+                string outputPath = Path.Combine(outputFolder, Path.GetFileNameWithoutExtension(inputPath) + "_inverted" + Path.GetExtension(inputPath));
+                
+                // Определяем формат сохранения
+                ImageFormat format = GetImageFormat(inputPath);
+                bitmap.Save(outputPath, format);
+            }
+            finally
+            {
+                bitmap?.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Определяет формат изображения по расширению файла
+        /// </summary>
+        static ImageFormat GetImageFormat(string filePath)
+        {
+            string extension = Path.GetExtension(filePath).ToLower();
+            return extension switch
+            {
+                ".jpg" or ".jpeg" => ImageFormat.Jpeg,
+                ".png" => ImageFormat.Png,
+                ".bmp" => ImageFormat.Bmp,
+                ".gif" => ImageFormat.Gif,
+                _ => ImageFormat.Png
+            };
+        }
+
+        /// <summary>
+        /// Отображает прогресс-бар в консоли
+        /// </summary>
+        static void ShowProgressBar(int current, int total)
+        {
+            int barLength = 50;
+            double percent = (double)current / total;
+            int filledLength = (int)(barLength * percent);
+
+            string progressBar = new string('█', filledLength) + new string('░', barLength - filledLength);
+            Console.Write($"\rПрогресс: [{progressBar}] {current}/{total} ({percent * 100:F1}%)");
+        }
+    }
+}
