@@ -1,0 +1,177 @@
+**Отлично!** Вот всё разбито **максимально отдельно и понятно** — по каждому пункту задания отдельно.
+
+### 1. Файл `author.py` (Задание 5.1)
+
+```python
+# author.py
+# Задание 5.1 - Класс Автор
+
+class Autor:
+    def __init__(self, fio, strana):
+        self.FIO = fio          # Фамилия Имя Отчество
+        self.strana = strana    # Страна
+
+    def info(self):
+        """Метод, выводящий информацию об авторе"""
+        print(f"Автор: {self.FIO}, Страна: {self.strana}")
+
+
+# ==================== ТЕСТ ====================
+if __name__ == "__main__":
+    print("=== Тест класса Автор ===")
+    a1 = Autor("Пушкин Александр Сергеевич", "Россия")
+    a2 = Autor("Rowling J.K.", "Великобритания")
+    a1.info()
+    a2.info()
+```
+
+---
+
+### 2. Файл `book.py` (Задания 5.2, 5.3, 5.4)
+
+```python
+# book.py
+# Задания 5.2 + 5.3 + 5.4 - Класс Книга
+
+class Kniga:
+    def __init__(self, nazvanie):
+        """Конструктор"""
+        self.__nazvanie = nazvanie           # приватное поле
+        self.__soderzhanie = []              # изначально пустой список произведений
+        print(f"Книга '{self.__nazvanie}' создана")
+
+    def __del__(self):
+        """Деструктор"""
+        print(f"Книга '{self.__nazvanie}' удалена")
+
+    def dobavit_proizvedenie(self, proizvedenie):
+        """5.3 - Добавляет произведение в содержание"""
+        self.__soderzhanie.append(proizvedenie)
+
+    def kolichestvo_proizvedeniy(self):
+        """5.3 - Возвращает количество произведений"""
+        return len(self.__soderzhanie)
+
+    def info(self):
+        """5.4 - Вывод информации о книге"""
+        print(f"Книга: {self.__nazvanie} Содержание:")
+        if not self.__soderzhanie:
+            print("  (содержание пустое)")
+        else:
+            for i, item in enumerate(self.__soderzhanie, 1):
+                print(f"  {i}) {item}")
+
+
+# ==================== ТЕСТ ====================
+if __name__ == "__main__":
+    print("=== Тест класса Книга ===")
+    kniga = Kniga("Стихотворения")
+    kniga.dobavit_proizvedenie("Я помню чудное мгновенье...")
+    kniga.dobavit_proizvedenie("Зимний вечер")
+    kniga.dobavit_proizvedenie("Пророк")
+    
+    kniga.info()
+    print(f"Всего произведений: {kniga.kolichestvo_proizvedeniy()}")
+```
+
+---
+
+### 3. Файл `kniga_avtora.py` (Задание 5.5)
+
+```python
+# kniga_avtora.py
+# Задание 5.5 - Класс КнигаАвтора (наследование от двух классов)
+
+from author import Autor
+from book import Kniga
+
+class KnigaAvtora(Autor, Kniga):
+    
+    def __init__(self, fio, strana, nazvanie_knigi):
+        Autor.__init__(self, fio, strana)      # инициализация от Автора
+        Kniga.__init__(self, nazvanie_knigi)   # инициализация от Книги
+
+    def polnaya_info(self):
+        """Метод, выводящий полную информацию (автор + книга)"""
+        print("=" * 60)
+        print("ПОЛНАЯ ИНФОРМАЦИЯ О КНИГЕ АВТОРА")
+        print("=" * 60)
+        self.info()                    # info из класса Autor
+        print("-" * 40)
+        Kniga.info(self)               # info из класса Kniga
+        print("=" * 60)
+
+
+# ==================== ТЕСТ ====================
+if __name__ == "__main__":
+    print("=== Тест класса КнигаАвтора ===")
+    ka = KnigaAvtora("Толстой Лев Николаевич", "Россия", "Война и мир")
+    ka.dobavit_proizvedenie("Том 1. Часть первая")
+    ka.dobavit_proizvedenie("Том 2. Часть вторая")
+    ka.polnaya_info()
+```
+
+---
+
+### 4. Файл `main.py` (Основная программа)
+
+```python
+# main.py
+# Основная программа — объединяет всё вместе
+
+from author import Autor
+from kniga_avtora import KnigaAvtora
+
+def main():
+    print("=== Задание 5.1 — Список авторов ===\n")
+    
+    N = int(input("Введите количество авторов (N): "))
+    avtory = []
+
+    for i in range(N):
+        print(f"\n--- Автор {i+1} ---")
+        fio = input("ФИО: ")
+        strana = input("Страна: ")
+        avtory.append(Autor(fio, strana))
+
+    # Вывод всех авторов
+    print("\n" + "="*50)
+    print("СПИСОК ВСЕХ АВТОРОВ:")
+    for avtor in avtory:
+        avtor.info()
+
+    # Только русские авторы
+    print("\n" + "="*50)
+    print("СПИСОК РУССКИХ АВТОРОВ:")
+    for avtor in avtory:
+        if avtor.strana.lower() in ["россия", "рф", "ru", "российская федерация"]:
+            avtor.info()
+
+    # Демонстрация KnigaAvtora
+    print("\n" + "="*60)
+    print("ДЕМОНСТРАЦИЯ КЛАССА КНИГААВТОРА")
+    print("="*60)
+    
+    ka = KnigaAvtora("Пушкин Александр Сергеевич", "Россия", "Евгений Онегин")
+    ka.dobavit_proizvedenie("Глава I")
+    ka.dobavit_proizvedenie("Глава II")
+    ka.dobavit_proizvedenie("Глава III")
+    ka.polnaya_info()
+
+    # Пример работы деструктора
+    del ka
+
+
+if __name__ == "__main__":
+    main()
+```
+
+---
+
+**Как использовать:**
+
+1. Создай одну папку.
+2. Создай в ней **4 отдельных файла** с именами точно как выше.
+3. Запускай по очереди каждый файл для проверки, а в конце — `main.py`.
+
+Хочешь, я сделаю ещё более подробные комментарии или версию с английскими названиями классов?
