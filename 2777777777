@@ -1,0 +1,122 @@
+**Понял тебя чётко.**  
+По заданию практической №27 действительно нужно:
+
+> **5.4.1** Добавить в таблицу товаров необязательное строковое поле `logo`, в котором должен храниться **путь к файлу** с логотипом товара.  
+> **5.4.3** Добавить таблицу `Photos`, где хранится `game_id` + **путь к файлу** с иллюстрацией.
+
+Само изображение **не заносится** в БД как BLOB, а только **путь** (например: `uploads/logo_5.jpg` или `uploads/photos/img12.png`).
+
+Вот **самое простое и правильное решение** именно под задание:
+
+### 1. Сначала подготовь базу (один раз)
+
+Выполни эти SQL-запросы в **phpMyAdmin**:
+
+```sql
+-- Добавляем поле logo в таблицу games
+ALTER TABLE games 
+ADD COLUMN logo VARCHAR(255) NULL AFTER price;
+
+-- Создаём таблицу для дополнительных фото
+CREATE TABLE IF NOT EXISTS photos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    game_id INT NOT NULL,
+    photo VARCHAR(255) NOT NULL,
+    FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+### 2. Создай папки для хранения файлов
+
+В папке твоего проекта создай:
+- `uploads/`
+- `uploads/photos/`
+
+### 3. Простейший способ загрузки (рекомендую для начала)
+
+Создай файл **`upload.php`**:
+
+```php
+<?php
+require_once 'connection.php';
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['game_id'])) {
+    
+    $game_id = (int)$_POST['game_id'];
+
+    // ==================== Загрузка logo ====================
+    if (isset($_FILES['logo']) && $_FILES['logo']['error'] == 0) {
+        
+        $filename = 'logo_' . $game_id . '_' . time() . '.' . pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION);
+        $target = "uploads/" . $filename;
+
+        if (move_uploaded_file($_FILES['logo']['tmp_name'], $target)) {
+            $stmt = $pdo->prepare("UPDATE games SET logo = ? WHERE id = ?");
+            $stmt->execute([$target, $game_id]);
+            echo "<p style='color:green'>Логотип успешно загружен и путь записан в БД!</p>";
+        }
+    }
+
+    // ==================== Загрузка дополнительных фото ====================
+    if (isset($_FILES['photos'])) {
+        if (!is_dir('uploads/photos')) mkdir('uploads/photos', 0777, true);
+
+        foreach ($_FILES['photos']['tmp_name'] as $key => $tmp_name) {
+            if ($_FILES['photos']['error'][$key] == 0) {
+                $filename = 'photo_' . $game_id . '_' . time() . '_' . $key . '.' . 
+                            pathinfo($_FILES['photos']['name'][$key], PATHINFO_EXTENSION);
+                $target = "uploads/photos/" . $filename;
+
+                if (move_uploaded_file($tmp_name, $target)) {
+                    $stmt = $pdo->prepare("INSERT INTO photos (game_id, photo) VALUES (?, ?)");
+                    $stmt->execute([$game_id, $target]);
+                }
+            }
+        }
+        echo "<p style='color:green'>Дополнительные фото загружены и пути записаны в таблицу photos!</p>";
+    }
+}
+?>
+
+<h2>Загрузка изображений для товара</h2>
+
+<form method="post" enctype="multipart/form-data">
+    <select name="game_id" required>
+        <?php
+        $res = $pdo->query("SELECT id, name FROM games");
+        while($row = $res->fetch()) {
+            echo "<option value='{$row['id']}'>{$row['name']}</option>";
+        }
+        ?>
+    </select><br><br>
+
+    Главное изображение (logo):<br>
+    <input type="file" name="logo" accept="image/*"><br><br>
+
+    Дополнительные фото:<br>
+    <input type="file" name="photos[]" multiple accept="image/*"><br><br>
+
+    <button type="submit">Загрузить</button>
+</form>
+```
+
+### Что делать дальше:
+
+1. Запусти `upload.php`
+2. Выбери товар → выбери фото → нажми "Загрузить"
+3. После загрузки зайди в phpMyAdmin:
+   - Таблица `games` → посмотри поле `logo` (там должен быть путь)
+   - Таблица `photos` → там должны появиться записи с путями
+
+После этого на странице `info.php` изображения будут отображаться, если ты правильно выводишь `src="<?= $game['logo'] ?>"` и цикл по таблице `photos`.
+
+---
+
+Хочешь, я сейчас дам тебе **готовый улучшенный вариант** `upload.php` с проверками и сообщением об успехе?
+
+Или сразу покажу, как лучше интегрировать загрузку в форму редактирования товара?
+
+Напиши коротко:  
+**"Дай улучшенный upload.php"** или **"Интегрировать в редактирование"**
+
+Я сделаю именно то, что нужно.
